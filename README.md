@@ -13,7 +13,7 @@ php >= 7.2.5
 ### Installation
 
 ```bash
-composer require FunkyOz/event-source
+composer require dessimoney/event-source
 ```
 
 ## How to use
