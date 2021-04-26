@@ -57,7 +57,7 @@ class EventSender
     /**
      * EventSender constructor.
      */
-    public function __construct()
+    public function __construct(EventBufferInterface $buffer = null)
     {
         $this->response = new StreamedResponse;
         $this->response->headers->set('Content-Type', 'text/event-stream');
@@ -66,7 +66,11 @@ class EventSender
         $this->response->headers->set('X-Accel-Buffering', 'no');
 
         // Using default EventBuffer
-        $this->setBuffer(new EventBuffer);
+        if (null === $buffer) {
+            $buffer = new EventBuffer();
+        }
+
+        $this->setBuffer($buffer);
     }
 
     /**
@@ -158,5 +162,24 @@ class EventSender
     public function setBuffer(EventBufferInterface $buffer): void
     {
         $this->buffer = $buffer;
+    }
+
+    /**
+     * @param string|null $key
+     * @param string|null $values
+     */
+    public function addHeader(?string $key, ?string $values): void
+    {
+        $this->response->headers->set($key, $values);
+    }
+
+    /**
+     * @param array $headers
+     */
+    public function addHeaders(array $headers): void
+    {
+        foreach ($headers as $key => $values) {
+            $this->addHeader($key, $values);
+        }
     }
 }
