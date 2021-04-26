@@ -18,7 +18,7 @@ class EventBuffer implements EventBufferInterface
         if (null !== $eventName) {
             echo 'event: ' . $eventName . PHP_EOL;
         }
-        echo 'data: ' . json_encode($data) . PHP_EOL . PHP_EOL;
+        echo 'data: ' . $data . PHP_EOL . PHP_EOL;
         if (null !== $id) {
             echo 'id: ' . $id . PHP_EOL;
         }
