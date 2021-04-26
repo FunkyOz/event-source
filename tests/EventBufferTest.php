@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Test;
 
-use EventSource\EventSource;
-use EventSource\EventSourceBuffer;
+use EventSource\Event;
+use EventSource\EventBuffer;
 use PHPUnit\Framework\TestCase;
 
-class EventSourceBufferTest extends TestCase
+class EventBufferTest extends TestCase
 {
     /**
-     * @param EventSource $event
+     * @param Event $event
      * @param string|null $payload
      * @dataProvider provide_write_data
      */
-    public function test_write(EventSource $event, ?string $payload)
+    public function test_write(Event $event, ?string $payload)
     {
         $this->expectOutputString($payload);
-        $buffer = new EventSourceBuffer;
+        $buffer = new EventBuffer;
         $buffer->write($event);
     }
 
@@ -26,7 +26,7 @@ class EventSourceBufferTest extends TestCase
     {
         return [
             [
-                new EventSource('message', 'this is a test'),
+                new Event('message', 'this is a test'),
                 'event: message
 data: "this is a test"
 
@@ -34,7 +34,7 @@ retry: 3000
 '
             ],
             [
-                new EventSource('json', json_encode(['key' => 'test'])),
+                new Event('json', json_encode(['key' => 'test'])),
                 'event: json
 data: "{\"key\":\"test\"}"
 
@@ -42,7 +42,7 @@ retry: 3000
 '
             ],
             [
-                new EventSource('message', 'test whit id', 'id-test'),
+                new Event('message', 'test whit id', 'id-test'),
                 'event: message
 data: "test whit id"
 
@@ -51,7 +51,7 @@ retry: 3000
 '
             ],
             [
-                new EventSource('message', 'test whit retry', null, 1),
+                new Event('message', 'test whit retry', null, 1),
                 'event: message
 data: "test whit retry"
 
@@ -59,7 +59,7 @@ retry: 1000
 '
             ],
             [
-                new EventSource('message', 'complete test', 'id', 2),
+                new Event('message', 'complete test', 'id', 2),
                 'event: message
 data: "complete test"
 

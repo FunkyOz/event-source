@@ -9,10 +9,10 @@ namespace EventSource;
  *
  * Interface to implement write. Using EventSourceBuffer for default
  */
-interface EventSourceBufferInterface
+interface EventBufferInterface
 {
     /**
-     * @param EventSource $event
+     * @param Event $event
      */
-    public function write(EventSource $event): void;
+    public function write(Event $event): void;
 }

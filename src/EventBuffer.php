@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace EventSource;
 
-class EventSourceBuffer implements EventSourceBufferInterface
+class EventBuffer implements EventBufferInterface
 {
     /**
-     * @param EventSource $event
+     * @param Event $event
      */
-    public function write(EventSource $event): void
+    public function write(Event $event): void
     {
-        $evt = $event->getEvent();
+        $eventName = $event->getEventName();
         $data = $event->getData();
         $id = $event->getId();
         $retry = $event->getRetry();
-        if (null !== $evt) {
-            echo 'event: ' . $evt . PHP_EOL;
+        if (null !== $eventName) {
+            echo 'event: ' . $eventName . PHP_EOL;
         }
         echo 'data: ' . json_encode($data) . PHP_EOL . PHP_EOL;
         if (null !== $id) {

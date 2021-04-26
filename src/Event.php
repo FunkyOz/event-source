@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace EventSource;
 
-class EventSource
+class Event
 {
     /**
      * @var string|null
      */
-    private $event;
+    private $eventName;
 
     /**
      * @var string|null
@@ -28,19 +28,19 @@ class EventSource
     private $retry;
 
     /**
-     * EventSource constructor.
-     * @param string $event
+     * Event constructor.
+     * @param string $eventName
      * @param string|null $data
      * @param string|null $id
      * @param int|null $retry
      */
     public function __construct(
-        string $event = 'message',
+        string $eventName = 'message',
         ?string $data = null,
         ?string $id = null,
         ?int $retry = 3
     ) {
-        $this->event = $event;
+        $this->eventName = $eventName;
         $this->data = $data;
         $this->id = $id;
         $this->retry = $retry;
@@ -49,17 +49,17 @@ class EventSource
     /**
      * @return string|null
      */
-    public function getEvent(): ?string
+    public function getEventName(): ?string
     {
-        return $this->event;
+        return $this->eventName;
     }
 
     /**
-     * @param string|null $event
+     * @param string|null $eventName
      */
-    public function setEvent(?string $event): void
+    public function setEventName(?string $eventName): void
     {
-        $this->event = $event;
+        $this->eventName = $eventName;
     }
 
     /**

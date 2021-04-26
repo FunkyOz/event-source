@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace EventSource;
@@ -6,7 +7,7 @@ namespace EventSource;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Class EventSourceSender
+ * Class EventSender
  * @package EventSource
  *
  * Loop response inside StreamedResponse callback:
@@ -16,7 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * - Then sleep until $sleep passed.
  *
  */
-class EventSourceSender
+class EventSender
 {
     public const ON_START = 'start';
     public const ON_WRITE = 'write';
@@ -49,7 +50,12 @@ class EventSourceSender
     protected $sleep = 1;
 
     /**
-     * EventSourceSender constructor.
+     * @var EventBufferInterface
+     */
+    protected $buffer;
+
+    /**
+     * EventSender constructor.
      */
     public function __construct()
     {
@@ -58,6 +64,9 @@ class EventSourceSender
         $this->response->headers->set('Transfer-Encoding', 'identity');
         $this->response->headers->set('Cache-Control', 'no-cache');
         $this->response->headers->set('X-Accel-Buffering', 'no');
+
+        // Using default EventBuffer
+        $this->setBuffer(new EventBuffer);
     }
 
     /**
@@ -82,7 +91,7 @@ class EventSourceSender
                     $shouldStop = false;
                     while (count($this->listeners[self::ON_WRITE]) > 0) {
                         $onWriteListener = array_shift($this->listeners[self::ON_WRITE]);
-                        $shouldStop = $shouldStop || $onWriteListener();
+                        $shouldStop = $shouldStop || $onWriteListener($this->buffer);
                     }
 
                     if (true === $shouldStop) {
@@ -141,5 +150,13 @@ class EventSourceSender
     public function setSleep(int $seconds): void
     {
         $this->sleep = $seconds;
+    }
+
+    /**
+     * @param EventBufferInterface $buffer
+     */
+    public function setBuffer(EventBufferInterface $buffer): void
+    {
+        $this->buffer = $buffer;
     }
 }

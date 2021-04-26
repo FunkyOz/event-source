@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Test;
 
-use EventSource\EventSourceSender;
+use EventSource\EventSender;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionException;
 
-class EventSourceSenderTest extends TestCase
+class EventSenderTest extends TestCase
 {
     private $sender;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->sender = new EventSourceSender;
+        $this->sender = new EventSender;
     }
 
     public function test_add_start_listener()
@@ -30,7 +30,7 @@ class EventSourceSenderTest extends TestCase
         }
 
         $listeners = $this->getListenersProperty();
-        self::assertCount($totals, $listeners[EventSourceSender::ON_START]);
+        self::assertCount($totals, $listeners[EventSender::ON_START]);
     }
 
     public function test_add_write_listener()
@@ -44,7 +44,7 @@ class EventSourceSenderTest extends TestCase
         }
 
         $listeners = $this->getListenersProperty();
-        self::assertCount($totals, $listeners[EventSourceSender::ON_WRITE]);
+        self::assertCount($totals, $listeners[EventSender::ON_WRITE]);
     }
 
     public function test_add_stop_listener()
@@ -58,7 +58,7 @@ class EventSourceSenderTest extends TestCase
         }
 
         $listeners = $this->getListenersProperty();
-        self::assertCount($totals, $listeners[EventSourceSender::ON_STOP]);
+        self::assertCount($totals, $listeners[EventSender::ON_STOP]);
     }
 
     public function test_send()
@@ -90,9 +90,9 @@ class EventSourceSenderTest extends TestCase
         self::assertTrue($stopListener);
 
         $listeners = $this->getListenersProperty();
-        self::assertEmpty($listeners[EventSourceSender::ON_START]);
-        self::assertEmpty($listeners[EventSourceSender::ON_WRITE]);
-        self::assertEmpty($listeners[EventSourceSender::ON_STOP]);
+        self::assertEmpty($listeners[EventSender::ON_START]);
+        self::assertEmpty($listeners[EventSender::ON_WRITE]);
+        self::assertEmpty($listeners[EventSender::ON_STOP]);
     }
 
     /**
