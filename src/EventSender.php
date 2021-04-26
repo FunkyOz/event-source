@@ -80,7 +80,7 @@ class EventSender
             function () {
                 while (count($this->listeners[self::ON_START]) > 0) {
                     $onStartListener = array_shift($this->listeners[self::ON_START]);
-                    $onStartListener();
+                    $onStartListener($this->buffer);
                 }
 
                 while (true) {
@@ -106,7 +106,7 @@ class EventSender
 
                 while (count($this->listeners[self::ON_STOP]) > 0) {
                     $onStopListener = array_shift($this->listeners[self::ON_STOP]);
-                    $onStopListener();
+                    $onStopListener($this->buffer);
                 }
             }
         );
