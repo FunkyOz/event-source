@@ -1,0 +1,33 @@
+{
+    "name": "dessimoney/event-source",
+    "description": "Implementation of Server-Sent Events (EventSource API https://www.w3.org/TR/eventsource)",
+    "type": "library",
+    "require": {
+        "php": "^7.2.33",
+        "ext-json": "*",
+        "symfony/http-foundation": "^5.2"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.3",
+        "phpunit/phpunit": "^8.5"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Lorenzo",
+            "email": "lorenzo.dessimoni@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Dessimoney\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Test\\": "tests/"
+        }
+    }
+}
