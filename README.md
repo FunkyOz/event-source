@@ -8,7 +8,7 @@ at https://www.w3.org/TR/eventsource.
 
 ### Requirements
 
-php >= 7.2.5
+php >= 7.1
 
 ### Installation
 
