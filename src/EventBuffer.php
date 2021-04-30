@@ -10,7 +10,7 @@ class EventBuffer implements EventBufferInterface
      * @param Event $event
      * @param bool $flush
      */
-    public function write(Event $event, bool $flush = true): void
+    public function write(Event $event, bool $flush = false): void
     {
         $eventName = $event->getEventName();
         $data = $event->getData();
