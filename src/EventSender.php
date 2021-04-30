@@ -102,6 +102,9 @@ class EventSender
                         break;
                     }
 
+                    ob_flush();
+                    flush();
+
                     usleep($this->sleep * 1000000);
                     if (1 === connection_aborted()) {
                         break;
