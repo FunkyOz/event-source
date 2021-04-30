@@ -8,8 +8,9 @@ class EventBuffer implements EventBufferInterface
 {
     /**
      * @param Event $event
+     * @param bool $flush
      */
-    public function write(Event $event): void
+    public function write(Event $event, bool $flush = true): void
     {
         $eventName = $event->getEventName();
         $data = $event->getData();
@@ -24,6 +25,11 @@ class EventBuffer implements EventBufferInterface
         }
         if (null !== $retry) {
             echo 'retry: ' . ($retry * 1000) . PHP_EOL;
+        }
+
+        if (true === $flush) {
+            ob_flush();
+            flush();
         }
     }
 }
