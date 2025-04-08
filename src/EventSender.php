@@ -22,42 +22,36 @@ class EventSender
     public const ON_START = 'start';
     public const ON_WRITE = 'write';
     public const ON_STOP = 'stop';
-
-    /**
-     * Listeners for events
-     * [start, write, stop]
-     *
-     * @var callable[]
-     */
-    private $listeners = [
-        self::ON_START => [],
-        self::ON_WRITE => [],
-        self::ON_STOP => []
-    ];
-
     /**
      * Symfony StreamedResponse
      *
      * @var StreamedResponse
      */
-    protected $response;
-
+    protected StreamedResponse $response;
     /**
      * Time to sleep in seconds
      *
      * @var int
      */
-    protected $sleep = 1;
-
+    protected int $sleep = 1;
+    protected EventBufferInterface $buffer;
     /**
-     * @var EventBufferInterface
+     * Listeners for events
+     * [start, write, stop]
+     *
+     * @var array{
+     *     'start': callable[],
+     *     'write': callable[],
+     *     'stop': callable[],
+     * }
      */
-    protected $buffer;
+    private array $listeners = [
+        self::ON_START => [],
+        self::ON_WRITE => [],
+        self::ON_STOP => []
+    ];
 
-    /**
-     * EventSender constructor.
-     */
-    public function __construct(EventBufferInterface $buffer = null)
+    public function __construct(?EventBufferInterface $buffer = null)
     {
         $this->response = new StreamedResponse;
         $this->response->headers->set('Content-Type', 'text/event-stream');
@@ -71,6 +65,14 @@ class EventSender
         }
 
         $this->setBuffer($buffer);
+    }
+
+    /**
+     * @param  EventBufferInterface  $buffer
+     */
+    public function setBuffer(EventBufferInterface $buffer): void
+    {
+        $this->buffer = $buffer;
     }
 
     /**
@@ -124,7 +126,7 @@ class EventSender
     /**
      * Add start listeners
      *
-     * @param callable|null $onStartListener
+     * @param  callable  $onStartListener
      */
     public function addStartListener(callable $onStartListener): void
     {
@@ -134,7 +136,7 @@ class EventSender
     /**
      * Add write listener
      *
-     * @param callable|null $onWriteListener
+     * @param  callable  $onWriteListener
      */
     public function addWriteListener(callable $onWriteListener): void
     {
@@ -144,7 +146,7 @@ class EventSender
     /**
      * Add stop listener
      *
-     * @param callable $onStopListener
+     * @param  callable  $onStopListener
      */
     public function addStopListener(callable $onStopListener): void
     {
@@ -152,7 +154,7 @@ class EventSender
     }
 
     /**
-     * @param int $seconds
+     * @param  int  $seconds
      */
     public function setSleep(int $seconds): void
     {
@@ -160,29 +162,36 @@ class EventSender
     }
 
     /**
-     * @param EventBufferInterface $buffer
-     */
-    public function setBuffer(EventBufferInterface $buffer): void
-    {
-        $this->buffer = $buffer;
-    }
-
-    /**
-     * @param string|null $key
-     * @param string|null $values
-     */
-    public function addHeader(?string $key, ?string $values): void
-    {
-        $this->response->headers->set($key, $values);
-    }
-
-    /**
-     * @param array $headers
+     * @param  array<string, string>  $headers
      */
     public function addHeaders(array $headers): void
     {
         foreach ($headers as $key => $values) {
             $this->addHeader($key, $values);
         }
+    }
+
+    /**
+     * @param  string|null  $key
+     * @param  string|null  $values
+     */
+    public function addHeader(?string $key, ?string $values): void
+    {
+        if ($key === null) {
+            return;
+        }
+        $this->response->headers->set($key, $values);
+    }
+
+    /**
+     * @return array{
+     *      'start': callable[],
+     *      'write': callable[],
+     *      'stop': callable[],
+     *  }
+     */
+    public function getListeners(): array
+    {
+        return $this->listeners;
     }
 }

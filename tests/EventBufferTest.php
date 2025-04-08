@@ -7,22 +7,22 @@ namespace Test;
 use EventSource\Event;
 use EventSource\EventBuffer;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class EventBufferTest extends TestCase
 {
-    /**
-     * @param Event $event
-     * @param string|null $payload
-     * @dataProvider provide_write_data
-     */
-    public function test_write(Event $event, ?string $payload)
+    #[DataProvider('provideWriteData')]
+    public function testWrite(Event $event, string $payload): void
     {
         $this->expectOutputString($payload);
         $buffer = new EventBuffer;
         $buffer->write($event);
     }
 
-    public function provide_write_data(): array
+    /**
+     * @return array<array{0: Event, 1: string}>
+     */
+    public static function provideWriteData(): array
     {
         return [
             [
@@ -34,7 +34,7 @@ retry: 3000
 '
             ],
             [
-                new Event('json', json_encode(['key' => 'test'])),
+                new Event('json', (string)json_encode(['key' => 'test'])),
                 'event: json
 data: {"key":"test"}
 

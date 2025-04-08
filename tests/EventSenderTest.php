@@ -6,20 +6,12 @@ namespace Test;
 
 use EventSource\EventSender;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
-use ReflectionException;
 
 class EventSenderTest extends TestCase
 {
-    private $sender;
+    private EventSender $sender;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->sender = new EventSender;
-    }
-
-    public function test_add_start_listener()
+    public function testAddStartListener(): void
     {
         $totals = mt_rand(1, 10);
         for ($i = 0; $i < $totals; $i++) {
@@ -29,11 +21,10 @@ class EventSenderTest extends TestCase
             );
         }
 
-        $listeners = $this->getListenersProperty();
-        self::assertCount($totals, $listeners[EventSender::ON_START]);
+        self::assertCount($totals, $this->sender->getListeners()[EventSender::ON_START]);
     }
 
-    public function test_add_write_listener()
+    public function testAddWriteListener(): void
     {
         $totals = mt_rand(1, 10);
         for ($i = 0; $i < $totals; $i++) {
@@ -43,11 +34,10 @@ class EventSenderTest extends TestCase
             );
         }
 
-        $listeners = $this->getListenersProperty();
-        self::assertCount($totals, $listeners[EventSender::ON_WRITE]);
+        self::assertCount($totals, $this->sender->getListeners()[EventSender::ON_WRITE]);
     }
 
-    public function test_add_stop_listener()
+    public function testAddStopListener(): void
     {
         $totals = mt_rand(1, 10);
         for ($i = 0; $i < $totals; $i++) {
@@ -57,11 +47,10 @@ class EventSenderTest extends TestCase
             );
         }
 
-        $listeners = $this->getListenersProperty();
-        self::assertCount($totals, $listeners[EventSender::ON_STOP]);
+        self::assertCount($totals, $this->sender->getListeners()[EventSender::ON_STOP]);
     }
 
-    public function test_send()
+    public function testSend(): void
     {
         $startListener = $writeListener = $stopListener = false;
         $this->sender->addStartListener(
@@ -89,22 +78,14 @@ class EventSenderTest extends TestCase
         self::assertTrue($writeListener);
         self::assertTrue($stopListener);
 
-        $listeners = $this->getListenersProperty();
-        self::assertEmpty($listeners[EventSender::ON_START]);
-        self::assertEmpty($listeners[EventSender::ON_WRITE]);
-        self::assertEmpty($listeners[EventSender::ON_STOP]);
+        self::assertEmpty($this->sender->getListeners()[EventSender::ON_START]);
+        self::assertEmpty($this->sender->getListeners()[EventSender::ON_WRITE]);
+        self::assertEmpty($this->sender->getListeners()[EventSender::ON_STOP]);
     }
 
-    /**
-     * @return array
-     * @throws ReflectionException
-     */
-    private function getListenersProperty(): array
+    protected function setUp(): void
     {
-        $reflection = new ReflectionClass(get_class($this->sender));
-        $property = $reflection->getProperty('listeners');
-        $property->setAccessible(true);
-
-        return $property->getValue($this->sender);
+        parent::setUp();
+        $this->sender = new EventSender;
     }
 }
