@@ -55,7 +55,6 @@ class EventSender
     {
         $this->response = new StreamedResponse;
         $this->response->headers->set('Content-Type', 'text/event-stream');
-        $this->response->headers->set('Transfer-Encoding', 'identity');
         $this->response->headers->set('Cache-Control', 'no-cache');
         $this->response->headers->set('X-Accel-Buffering', 'no');
 
