@@ -84,6 +84,12 @@ class EventSender
     {
         $this->response->setCallback(
             function () {
+                $bufferStarted = false;
+                if (ob_get_level() === 0) {
+                    ob_start();
+                    $bufferStarted = true;
+                }
+
                 while (count($this->listeners[self::ON_START]) > 0) {
                     $onStartListener = array_shift($this->listeners[self::ON_START]);
                     $onStartListener($this->buffer);
@@ -116,6 +122,10 @@ class EventSender
                 while (count($this->listeners[self::ON_STOP]) > 0) {
                     $onStopListener = array_shift($this->listeners[self::ON_STOP]);
                     $onStopListener($this->buffer);
+                }
+
+                if ($bufferStarted && ob_get_level() > 0) {
+                    ob_end_flush();
                 }
             }
         );
