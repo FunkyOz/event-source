@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-23
+
 The package is renamed from `dessimoney/event-source` to `funkyoz/event-source`, with a new API. Both can be
 installed at the same time, since their namespaces differ. See [Upgrading from 1.x](docs/upgrading-from-1.x.md).
 
@@ -122,7 +124,8 @@ installed at the same time, since their namespaces differ. See [Upgrading from 1
 
 - First release.
 
-[Unreleased]: https://github.com/FunkyOz/event-source/compare/1.0.10...HEAD
+[Unreleased]: https://github.com/FunkyOz/event-source/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/FunkyOz/event-source/compare/1.0.10...2.0.0
 [1.0.10]: https://github.com/FunkyOz/event-source/compare/1.0.9...1.0.10
 [1.0.9]: https://github.com/FunkyOz/event-source/compare/1.0.8...1.0.9
 [1.0.8]: https://github.com/FunkyOz/event-source/compare/1.0.7...1.0.8
