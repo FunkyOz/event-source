@@ -30,7 +30,9 @@ final class PhpOutput implements Output
 
     public function flush(): void
     {
-        if (ob_get_level() > 0) {
+        // A buffer that couldn't be closed may not be flushable either: ob_flush() would raise a notice on every event
+        $buffer = ob_get_status();
+        if ([] !== $buffer && 0 !== ($buffer['flags'] & PHP_OUTPUT_HANDLER_FLUSHABLE)) {
             ob_flush();
         }
         flush();

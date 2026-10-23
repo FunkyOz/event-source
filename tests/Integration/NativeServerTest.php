@@ -69,6 +69,15 @@ class NativeServerTest extends TestCase
         }
     }
 
+    public function testABufferThatCannotBeFlushedIsLeftAlone(): void
+    {
+        [, , $body] = $this->request('GET', '/?case=protected-buffer');
+
+        // The buffer holds the events until the request ends, without errors
+        self::assertStringNotContainsString('error:', $body);
+        self::assertEquals([new Event('tick', '1'), new Event('tick', '2')], EventParser::parse($body)->events);
+    }
+
     public function testStopListenersRunWhenTheClientDisconnects(): void
     {
         $marker = tempnam(sys_get_temp_dir(), 'event-source-');
