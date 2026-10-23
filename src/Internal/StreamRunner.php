@@ -59,6 +59,9 @@ final readonly class StreamRunner
                 }
                 foreach ($this->onStart as $listener) {
                     $listener($this->stream);
+                    if ($this->state->stopRequested) {
+                        break;
+                    }
                 }
                 $reason = $this->generator instanceof \Closure ? $this->runGenerator($this->generator) : $this->runTicks();
             } catch (\Throwable $e) {

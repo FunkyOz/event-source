@@ -92,6 +92,29 @@ class EventStreamTest extends TestCase
         self::assertSame(StopReason::Stopped, $result->stopReason());
     }
 
+    public function testStopInStartListenerSkipsTheNextStartListeners(): void
+    {
+        $calls = [];
+        $stream = EventStream::create()
+            ->onStart(function (Stream $stream) use (&$calls): void {
+                $calls[] = 'first';
+                $stream->stop();
+            })
+            ->onStart(function (Stream $stream) use (&$calls): void {
+                $calls[] = 'second';
+                $stream->send(new Event('hello'));
+            })
+            ->onStop(function () use (&$calls): void {
+                $calls[] = 'stop';
+            });
+
+        $result = StreamTester::for($stream)->run();
+
+        self::assertSame(['first', 'stop'], $calls);
+        self::assertSame([], $result->events());
+        self::assertSame(StopReason::Stopped, $result->stopReason());
+    }
+
     public function testWithoutTickListenersEndsAfterStart(): void
     {
         $stream = EventStream::create()->onStart(fn(Stream $stream) => $stream->send(new Event('hello')));

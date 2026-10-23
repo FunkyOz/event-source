@@ -10,7 +10,9 @@ use FunkyOz\EventSource\EventStream;
 use FunkyOz\EventSource\Stream;
 use FunkyOz\EventSource\Testing\EventParser;
 use FunkyOz\EventSource\Tests\Support\CapturesOutput;
+use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Routing\ResponseFactory;
 use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\TestCase;
@@ -52,6 +54,29 @@ class EventSourceServiceProviderTest extends TestCase
         self::assertEquals([new Event('resume', '41')], EventParser::parse($output)->events);
     }
 
+    public function testUsesTheRequestOfTheApplicationCreatedLast(): void
+    {
+        self::assertInstanceOf(Application::class, $this->app);
+        $this->app->instance(Request::class, $this->requestWithLastEventId('old'));
+
+        // A second application in the same process, without flushing the macros: its provider keeps the macro
+        $second = $this->createApplication();
+        $second->instance(Request::class, $this->requestWithLastEventId('new'));
+
+        try {
+            $response = $second->make(ResponseFactory::class)->__call(EventSourceServiceProvider::MACRO, [
+                EventStream::create()->onStart(fn(Stream $stream) => $stream->send(new Event('resume', (string) $stream->lastEventId()))),
+            ]);
+            self::assertInstanceOf(StreamedResponse::class, $response);
+            $output = $this->captureOutput($response->sendContent(...));
+        } finally {
+            $second->flush();
+            Container::setInstance($this->app);
+        }
+
+        self::assertEquals([new Event('resume', 'new')], EventParser::parse($output)->events);
+    }
+
     public function testBootingTwiceKeepsTheMacro(): void
     {
         $this->provider()->boot();
@@ -91,6 +116,11 @@ class EventSourceServiceProviderTest extends TestCase
         self::assertInstanceOf(Application::class, $this->app);
 
         return new EventSourceServiceProvider($this->app);
+    }
+
+    private function requestWithLastEventId(string $id): Request
+    {
+        return Request::create('/events', server: ['HTTP_LAST_EVENT_ID' => $id]);
     }
 
     private function resetRegisteredFlag(): void

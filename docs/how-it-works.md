@@ -66,7 +66,7 @@ Some details:
 
 - **Ticks start at a fixed interval**: with `every(5)`, ticks start at 0 s, 5 s, 10 s… If a tick takes 2 seconds,
   the stream waits 3. If it takes longer than the interval, the next tick starts right away.
-- **`stop()` ends the stream after the current listener.** The tick listeners after it don't run.
+- **`stop()` ends the stream after the current listener.** The start or tick listeners after it don't run.
 - **A tick stream without tick listeners** ends right after the start listeners.
 - **Stop listeners always run**: after `stop()`, a disconnection, the maximum duration, or an error.
 - **Iterations**: `$stream->iteration()` is 0 in start listeners, then 1, 2, 3… for each tick.

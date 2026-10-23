@@ -94,6 +94,29 @@ class GeneratorStreamTest extends TestCase
         self::assertFalse($called);
     }
 
+    public function testStopInStartListenerSkipsTheNextStartListeners(): void
+    {
+        $calls = [];
+        $stream = EventStream::fromGenerator(function (): \Generator {
+            yield new Event('a');
+        })
+            ->onStart(function (Stream $stream) use (&$calls): void {
+                $calls[] = 'first';
+                $stream->stop();
+            })
+            ->onStart(function () use (&$calls): void {
+                $calls[] = 'second';
+            })
+            ->onStop(function () use (&$calls): void {
+                $calls[] = 'stop';
+            });
+
+        $result = StreamTester::for($stream)->run();
+
+        self::assertSame(['first', 'stop'], $calls);
+        self::assertSame([], $result->events());
+    }
+
     public function testClientDisconnection(): void
     {
         $stream = EventStream::fromGenerator(function (): \Generator {

@@ -41,7 +41,7 @@ EventStream::create()
     });
 ```
 
-`$stream->isStopped()` tells whether `stop()` was called, for example in a later listener.
+`$stream->isStopped()` tells whether `stop()` was called, for example in a stop listener.
 
 A stream also ends when the client disconnects, when the [maximum duration](#maximum-duration) is reached, and when a
 listener throws (see [Error handling](error-handling.md)).

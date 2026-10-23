@@ -6,6 +6,7 @@ namespace FunkyOz\EventSource\Bridge\Laravel;
 
 use FunkyOz\EventSource\Bridge\Symfony\StreamedResponseFactory;
 use FunkyOz\EventSource\EventStream;
+use Illuminate\Container\Container;
 use Illuminate\Http\Request;
 use Illuminate\Routing\ResponseFactory;
 use Illuminate\Support\ServiceProvider;
@@ -36,10 +37,10 @@ final class EventSourceServiceProvider extends ServiceProvider
             ));
         }
 
-        // Not a static closure, because Laravel binds macros to the ResponseFactory instance. That also changes
-        // $this, so the application is captured in a variable
-        $app = $this->app;
-        ResponseFactory::macro(self::MACRO, fn(EventStream $stream): StreamedResponse => StreamedResponseFactory::create($stream, $app->make(Request::class)));
+        // The macro outlives this provider: it stays registered when another application is created in the same
+        // process, as in tests. So the request is resolved from the current application when the macro is called.
+        // Not a static closure, because Laravel binds macros to the ResponseFactory instance
+        ResponseFactory::macro(self::MACRO, fn(EventStream $stream): StreamedResponse => StreamedResponseFactory::create($stream, Container::getInstance()->make(Request::class)));
         self::$registered = true;
     }
 }
