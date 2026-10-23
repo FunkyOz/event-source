@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace EventSource;
@@ -13,7 +14,6 @@ interface EventBufferInterface
 {
     /**
      * @param Event $event
-     * @param bool $flush
      */
     public function write(Event $event, bool $flush = false): void;
 }

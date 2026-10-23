@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Event Source example</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+        #log { font-family: ui-monospace, monospace; white-space: pre-wrap; background: #f4f4f5; padding: 1rem; border-radius: .5rem; min-height: 10rem; }
+        .status { font-weight: 600; }
+    </style>
+</head>
+<body>
+<h1>Event Source example</h1>
+<p>Status: <span class="status" id="status">connecting…</span></p>
+<p>
+    <button id="close" type="button">Close connection</button>
+    <button id="restart" type="button">Restart from zero</button>
+</p>
+<div id="log"></div>
+
+<script>
+    const log = document.getElementById('log');
+    const status = document.getElementById('status');
+    let source;
+
+    function append(line) {
+        log.textContent += line + '\n';
+    }
+
+    function connect() {
+        source = new EventSource('events.php');
+        source.onopen = () => (status.textContent = 'open');
+        source.onerror = () => (status.textContent = source.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting…');
+        source.addEventListener('hello', (e) => append('hello: ' + e.data));
+        source.addEventListener('tick', (e) => append(`tick (id ${e.lastEventId}): ${e.data}`));
+        source.addEventListener('done', (e) => {
+            append('done: ' + e.data);
+            source.close();
+            status.textContent = 'closed';
+        });
+    }
+
+    document.getElementById('close').onclick = () => {
+        source.close();
+        status.textContent = 'closed';
+    };
+    document.getElementById('restart').onclick = () => {
+        source.close();
+        log.textContent = '';
+        connect();
+    };
+
+    connect();
+</script>
+</body>
+</html>

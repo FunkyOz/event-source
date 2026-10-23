@@ -11,10 +11,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * @package EventSource
  *
  * Loop response inside StreamedResponse callback:
- * - Call each listeners [start, write, stop] and shift it, at the end of process all listeners are empty
- * - If write listener are empty break the loop.
- * - If even just one write listener return true then break the loop.
- * - Then sleep until $sleep passed.
+ * - Call start listeners once.
+ * - Call all write listeners on every iteration, flush the output, then sleep for $sleep seconds.
+ * - If even just one write listener returns true, or the client disconnects, break the loop.
+ * - Call stop listeners once, even when the client has disconnected.
+ * - At the end of the process all listeners are empty.
  *
  */
 class EventSender
@@ -24,17 +25,14 @@ class EventSender
     public const ON_STOP = 'stop';
     /**
      * Symfony StreamedResponse
-     *
-     * @var StreamedResponse
      */
     protected StreamedResponse $response;
     /**
      * Time to sleep in seconds
-     *
-     * @var int
      */
-    protected int $sleep = 1;
+    protected float $sleep = 1;
     protected EventBufferInterface $buffer;
+    protected RuntimeInterface $runtime;
     /**
      * Listeners for events
      * [start, write, stop]
@@ -48,27 +46,21 @@ class EventSender
     private array $listeners = [
         self::ON_START => [],
         self::ON_WRITE => [],
-        self::ON_STOP => []
+        self::ON_STOP => [],
     ];
 
-    public function __construct(?EventBufferInterface $buffer = null)
+    public function __construct(?EventBufferInterface $buffer = null, ?RuntimeInterface $runtime = null)
     {
-        $this->response = new StreamedResponse;
+        $this->response = new StreamedResponse();
         $this->response->headers->set('Content-Type', 'text/event-stream');
         $this->response->headers->set('Cache-Control', 'no-cache');
         $this->response->headers->set('X-Accel-Buffering', 'no');
 
-        // Using default EventBuffer
-        if (null === $buffer) {
-            $buffer = new EventBuffer();
-        }
-
-        $this->setBuffer($buffer);
+        // Using default PhpRuntime and EventBuffer
+        $this->runtime = $runtime ?? new PhpRuntime();
+        $this->setBuffer($buffer ?? new EventBuffer(null, $this->runtime));
     }
 
-    /**
-     * @param  EventBufferInterface  $buffer
-     */
     public function setBuffer(EventBufferInterface $buffer): void
     {
         $this->buffer = $buffer;
@@ -76,57 +68,65 @@ class EventSender
 
     /**
      * Send response through Symfony StreamedResponse
-     *
-     * @return StreamedResponse
      */
     public function send(): StreamedResponse
     {
         $this->response->setCallback(
-            function () {
+            function (): void {
                 $bufferStarted = false;
                 if (ob_get_level() === 0) {
                     ob_start();
                     $bufferStarted = true;
                 }
 
-                while (count($this->listeners[self::ON_START]) > 0) {
-                    $onStartListener = array_shift($this->listeners[self::ON_START]);
+                $startListeners = $this->listeners[self::ON_START];
+                $this->listeners[self::ON_START] = [];
+                foreach ($startListeners as $onStartListener) {
                     $onStartListener($this->buffer);
                 }
 
-                while (true) {
-                    if (empty($this->listeners[self::ON_WRITE])) {
-                        break;
-                    }
+                // Keep running after a client disconnect so stop listeners are always called
+                $previousIgnoreUserAbort = ignore_user_abort(true);
 
+                // Write listeners are called on every iteration until one of them returns true
+                // or the client disconnects
+                $writeListeners = $this->listeners[self::ON_WRITE];
+                $this->listeners[self::ON_WRITE] = [];
+                while (!empty($writeListeners)) {
                     $shouldStop = false;
-                    while (count($this->listeners[self::ON_WRITE]) > 0) {
-                        $onWriteListener = array_shift($this->listeners[self::ON_WRITE]);
-                        $shouldStop = $shouldStop || $onWriteListener($this->buffer);
+                    foreach ($writeListeners as $onWriteListener) {
+                        $shouldStop = (true === $onWriteListener($this->buffer)) || $shouldStop;
                     }
 
-                    if (true === $shouldStop) {
+                    if ($shouldStop) {
                         break;
                     }
 
-                    ob_flush();
-                    flush();
+                    $this->runtime->flush();
 
-                    usleep($this->sleep * 1000000);
-                    if (1 === connection_aborted()) {
+                    // The disconnection is only detected after trying to send output
+                    if ($this->runtime->isConnectionAborted()) {
                         break;
                     }
+
+                    $this->runtime->sleep($this->sleep);
                 }
 
-                while (count($this->listeners[self::ON_STOP]) > 0) {
-                    $onStopListener = array_shift($this->listeners[self::ON_STOP]);
+                $stopListeners = $this->listeners[self::ON_STOP];
+                $this->listeners[self::ON_STOP] = [];
+                foreach ($stopListeners as $onStopListener) {
                     $onStopListener($this->buffer);
                 }
+                // Send what the last write and the stop listeners have written
+                $this->runtime->flush();
 
-                if ($bufferStarted && ob_get_level() > 0) {
+                // Only close the buffer opened here
+                if ($bufferStarted) {
                     ob_end_flush();
                 }
-            }
+
+                ignore_user_abort((bool) $previousIgnoreUserAbort);
+            },
         );
 
         return $this->response->send();
@@ -134,8 +134,6 @@ class EventSender
 
     /**
      * Add start listeners
-     *
-     * @param  callable  $onStartListener
      */
     public function addStartListener(callable $onStartListener): void
     {
@@ -144,8 +142,6 @@ class EventSender
 
     /**
      * Add write listener
-     *
-     * @param  callable  $onWriteListener
      */
     public function addWriteListener(callable $onWriteListener): void
     {
@@ -154,8 +150,6 @@ class EventSender
 
     /**
      * Add stop listener
-     *
-     * @param  callable  $onStopListener
      */
     public function addStopListener(callable $onStopListener): void
     {
@@ -163,10 +157,13 @@ class EventSender
     }
 
     /**
-     * @param  int  $seconds
+     * Time to sleep between iterations, fractions of a second are allowed (e.g. 0.5)
      */
-    public function setSleep(int $seconds): void
+    public function setSleep(float $seconds): void
     {
+        if ($seconds < 0) {
+            throw new \InvalidArgumentException('The sleep time cannot be negative.');
+        }
         $this->sleep = $seconds;
     }
 
@@ -180,10 +177,6 @@ class EventSender
         }
     }
 
-    /**
-     * @param  string|null  $key
-     * @param  string|null  $values
-     */
     public function addHeader(?string $key, ?string $values): void
     {
         if ($key === null) {

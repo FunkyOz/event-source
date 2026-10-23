@@ -2,23 +2,50 @@
     "name": "dessimoney/event-source",
     "description": "Implementation of Event Source API (Server-Sent Events https://www.w3.org/TR/eventsource)",
     "type": "library",
+    "keywords": ["sse", "server-sent-events", "eventsource", "event-stream", "streaming"],
     "require": {
-        "php": ">=8.1",
-        "ext-json": "*",
-        "symfony/http-foundation": "^7"
+        "php": "^8.2",
+        "symfony/http-foundation": "^6.4 || ^7.0 || ^8.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.0",
-        "phpstan/phpstan": "^2.1"
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "infection/infection": "^0.29.14 || ^0.31 || ^0.35",
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.0",
+        "rector/rector": "^2.7"
     },
     "scripts": {
         "tests:types": "./vendor/bin/phpstan analyse -c ./phpstan.neon.dist --memory-limit=-1",
         "tests:type": "@tests:types",
         "tests:unit": "./vendor/bin/phpunit",
+        "tests:coverage": "./vendor/bin/phpunit --coverage-text --coverage-clover=build/coverage/clover.xml",
+        "tests:mutation": "./vendor/bin/infection --threads=max --show-mutations",
+        "cs:check": "./vendor/bin/php-cs-fixer check --diff",
+        "cs:fix": "./vendor/bin/php-cs-fixer fix",
+        "rector:check": "./vendor/bin/rector process --dry-run",
+        "rector:fix": "./vendor/bin/rector process",
+        "example": [
+            "Composer\\Config::disableProcessTimeout",
+            "PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t examples"
+        ],
         "tests": [
+            "@cs:check",
+            "@rector:check",
             "@tests:types",
             "@tests:unit"
         ]
+    },
+    "scripts-descriptions": {
+        "tests": "Run every check that CI runs",
+        "tests:types": "Run PHPStan static analysis",
+        "tests:unit": "Run PHPUnit tests",
+        "tests:coverage": "Run PHPUnit tests with code coverage (needs pcov or xdebug)",
+        "tests:mutation": "Run Infection mutation tests (needs pcov or xdebug)",
+        "cs:check": "Check code style",
+        "cs:fix": "Fix code style",
+        "rector:check": "Show the changes Rector would apply",
+        "rector:fix": "Apply Rector changes",
+        "example": "Serve the examples/ folder on http://localhost:8000"
     },
     "license": "MIT",
     "authors": [
@@ -27,8 +54,13 @@
             "email": "lorenzo.dessimoni@gmail.com"
         }
     ],
-    "minimum-stability": "dev",
-    "prefer-stable": true,
+    "config": {
+        "lock": false,
+        "sort-packages": true,
+        "allow-plugins": {
+            "infection/extension-installer": true
+        }
+    },
     "autoload": {
         "psr-4": {
             "EventSource\\": "src/"
