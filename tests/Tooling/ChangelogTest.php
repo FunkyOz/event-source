@@ -163,8 +163,11 @@ class ChangelogTest extends TestCase
     {
         $changelog = Changelog::fromFile(__DIR__ . '/../../CHANGELOG.md');
 
-        self::assertSame('1.0.10', $changelog->latestVersion());
-        self::assertStringContainsString('## [2.0.0] - ', $changelog->prepare('2.0.0', '2026-10-23'));
+        // Only what stays true across releases: the latest version is valid and has release notes
+        $version = $changelog->latestVersion();
+        self::assertNotNull($version);
+        Changelog::assertVersion($version);
+        self::assertNotSame('', trim($changelog->notes($version)));
     }
 
     public function testMissingFile(): void
