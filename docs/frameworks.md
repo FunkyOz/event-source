@@ -105,7 +105,8 @@ Route::get('/notifications/stream', function () {
 - It returns a Symfony `StreamedResponse`, which Laravel sends like any response.
 - To stop the browser from reconnecting, return `response()->noContent()`.
 
-Laravel's own `response()->eventStream()` is a different, simpler feature. The two can be used side by side.
+Laravel's own `response()->eventStream()` is a different, simpler feature. The two can be used side by side, see
+[Compared with Symfony and Laravel](comparison.md).
 
 ### Registering the provider yourself
 

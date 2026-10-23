@@ -33,6 +33,7 @@ reference. This page is an overview.
 
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [Why this library?](#why-this-library)
 - [How it works](#how-it-works)
 - [Sending events](#sending-events)
 - [Controlling the stream](#controlling-the-stream)
@@ -41,7 +42,6 @@ reference. This page is an overview.
 - [Errors](#errors)
 - [Testing](#testing)
 - [Running it in production](#running-it-in-production)
-- [Why this library?](#why-this-library)
 - [API reference](#api-reference)
 - [Upgrading from 1.x](#upgrading-from-1x)
 
@@ -97,6 +97,22 @@ open stream keeps one busy.
 
 For more, clone this repository and run `composer example`: a resuming counter, a chat, a progress bar, a background
 job, a dashboard and error handling, plus Symfony, Laravel and testing examples. See [`examples/`](examples).
+
+## Why this library?
+
+Symfony (`EventStreamResponse`, since 7.3) and Laravel (`response()->eventStream()`) can send Server-Sent Events too.
+They format the events, and leave the rest to you. This library handles what makes a long-running stream reliable:
+
+- **Resuming**: event ids, and `$stream->lastEventId()` after a reconnection. Laravel's events have no ids, so the
+  browser can't tell it what it missed.
+- **Timing**: polling at a fixed interval, heartbeats while waiting, and a maximum duration.
+- **Lifecycle**: start, stop and error hooks, with the reason the stream ended.
+- **Tests**: run a stream in a unit test, without a server or waiting.
+- **Portability**: the same code in plain PHP, Symfony and Laravel.
+
+For a stream with a natural end, like the answer of an AI model, Laravel's `eventStream()` is enough. For thousands
+of simultaneous clients, use a dedicated server such as [Mercure](https://mercure.rocks). See
+[Compared with Symfony and Laravel](docs/comparison.md) for the details, side by side.
 
 ## How it works
 
@@ -424,21 +440,6 @@ Each client is served by one long-running PHP request, which checks for new data
 notifications, progress bars, dashboards and live feeds. For thousands of simultaneous clients, consider a dedicated
 real-time server such as [Mercure](https://mercure.rocks).
 
-## Why this library?
-
-Symfony 7.3 and Laravel 11 added basic Server-Sent Events support. This library does more:
-
-| | Symfony `EventStreamResponse` | Laravel `response()->eventStream()` | This library |
-|---|---|---|---|
-| Plain PHP, no framework | ❌ | ❌ | ✅ |
-| Same API in every framework | ❌ | ❌ | ✅ |
-| Event ids and `retry` | ✅ | ❌ | ✅ |
-| `Last-Event-ID` for resuming | do it yourself | do it yourself | ✅ |
-| Polling at a fixed interval | do it yourself | do it yourself | ✅ |
-| Start and stop hooks, also after a disconnection | ❌ | ❌ | ✅ |
-| Heartbeats and maximum duration | ❌ | ❌ | ✅ |
-| Testing helpers | ❌ | ❌ | ✅ |
-
 ## API reference
 
 ### `EventStream`
@@ -539,6 +540,7 @@ of changes.
 | [Frameworks](docs/frameworks.md) | Symfony, Laravel and others |
 | [Testing](docs/testing.md) | Test streams without a server or waiting |
 | [Running in production](docs/production.md) | PHP-FPM, nginx, Apache, sessions, proxies, scaling |
+| [Compared with Symfony and Laravel](docs/comparison.md) | Their built-in SSE support, and when to use which |
 | [Recipes](docs/recipes.md) | Notifications, job progress, dashboards… |
 | [Troubleshooting](docs/troubleshooting.md) | Symptoms, causes and fixes |
 | [Extending](docs/extending.md) | Custom outputs, and adapters for other frameworks |
