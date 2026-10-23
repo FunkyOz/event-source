@@ -1,0 +1,74 @@
+name: Release
+
+# Pushing a version tag (2.1.0, or 2.1.0-beta.1 for a pre-release) creates the GitHub release, with the tag's
+# changelog section as notes. Packagist picks up the tag on its own, through its GitHub hook.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: Release ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+          tools: none
+
+      - name: Check the version
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::$VERSION is not a semantic version like 2.1.0 or 2.1.0-beta.1."
+            exit 1
+          fi
+
+      - name: Check the tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::The tagged commit is not on main. Merge the release pull request first, then tag the merged commit."
+            exit 1
+          fi
+
+      - name: Check CI passed on the tagged commit
+        run: |
+          run_id=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run_id" ]; then
+            echo "::error::No CI run found for $GITHUB_SHA. Push the commit to main and let CI run before tagging it."
+            exit 1
+          fi
+          # Wait for it if it's still running, and fail if it failed
+          gh run watch "$run_id" --exit-status --interval 30 > /dev/null || {
+            echo "::error::CI did not pass on $GITHUB_SHA: https://github.com/${{ github.repository }}/actions/runs/$run_id"
+            exit 1
+          }
+
+      - name: Extract the release notes from the changelog
+        run: php scripts/release.php notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+
+      - name: Create the GitHub release
+        run: |
+          prerelease=""
+          if [[ "$VERSION" == *-* ]]; then
+            prerelease="--prerelease"
+          fi
+          gh release create "$VERSION" \
+            --verify-tag \
+            --title "$VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            $prerelease

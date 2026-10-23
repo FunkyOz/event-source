@@ -474,7 +474,6 @@ composer.phar
 .phpunit.cache
 
 .phpdoc/
-docs
 
 # Library
 /composer.lock

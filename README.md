@@ -1,29 +1,33 @@
 # PHP Event Source
 
-**Stream real-time updates from PHP to the browser with [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html).**
+**Stream real-time updates from PHP to the browser with [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html), in plain PHP, Symfony or Laravel.**
 
 [![CI](https://github.com/FunkyOz/event-source/actions/workflows/ci.yml/badge.svg)](https://github.com/FunkyOz/event-source/actions/workflows/ci.yml)
-[![Latest version](https://img.shields.io/packagist/v/dessimoney/event-source)](https://packagist.org/packages/dessimoney/event-source)
-[![PHP version](https://img.shields.io/packagist/dependency-v/dessimoney/event-source/php)](https://packagist.org/packages/dessimoney/event-source)
+[![Latest version](https://img.shields.io/packagist/v/funkyoz/event-source)](https://packagist.org/packages/funkyoz/event-source)
+[![PHP version](https://img.shields.io/packagist/dependency-v/funkyoz/event-source/php)](https://packagist.org/packages/funkyoz/event-source)
 [![License](https://img.shields.io/github/license/FunkyOz/event-source)](LICENSE)
 
 Server-Sent Events let a server push messages to the browser over a plain HTTP connection. The browser side is
 built in (`new EventSource(url)`), reconnects on its own and resumes where it left off. This library is the PHP side:
-it keeps the response open, formats your events correctly and stops cleanly when the client goes away.
+it keeps the connection open, formats your events correctly, and handles the whole life of the stream for you.
 
 ```php
-$sender = new EventSender();
-$sender->addWriteListener(function (EventBufferInterface $buffer) {
-    $buffer->write(new Event('time', date('H:i:s')));
-});
-$sender->send();
+EventStream::create()
+    ->onTick(fn (Stream $stream) => $stream->send(new Event('time', date('H:i:s'))))
+    ->send();
 ```
 
-- **Small and focused**: a handful of classes, built on Symfony's `StreamedResponse`
-- **Correct output**: follows the specification, including multi-line data, event ids and reconnection delays
-- **Works anywhere**: plain PHP, Symfony, Laravel or any framework that understands Symfony responses
-- **Clean shutdown**: stop listeners run even when the user closes the tab
-- **Testable**: write events to any stream and replace the timing and connection checks in your tests
+- **No dependencies**: works in plain PHP, and returns native responses in Symfony and Laravel
+- **The whole lifecycle handled**: setup and cleanup hooks, a polling interval, heartbeats, a maximum duration,
+  disconnections and errors
+- **Resuming built in**: `Last-Event-ID` is read for you, and follows the events you send
+- **Correct and safe output**: multi-line data, ids, reconnection delays, and no way to corrupt the stream
+- **Testable**: run a stream instantly in a unit test and check what it sent
+
+> Previously published as `dessimoney/event-source`. See [Upgrading from 1.x](#upgrading-from-1x).
+
+📖 **[Full documentation](docs/README.md)**: guides, recipes, troubleshooting, production setup and the complete API
+reference. This page is an overview.
 
 ## Contents
 
@@ -32,20 +36,23 @@ $sender->send();
 - [How it works](#how-it-works)
 - [Sending events](#sending-events)
 - [Controlling the stream](#controlling-the-stream)
-- [Using it in a framework](#using-it-in-a-framework)
-- [Customizing the output](#customizing-the-output)
-- [Testing your code](#testing-your-code)
+- [Symfony, Laravel and other frameworks](#symfony-laravel-and-other-frameworks)
+- [Streams from a generator](#streams-from-a-generator)
+- [Errors](#errors)
+- [Testing](#testing)
 - [Running it in production](#running-it-in-production)
+- [Why this library?](#why-this-library)
 - [API reference](#api-reference)
 - [Upgrading from 1.x](#upgrading-from-1x)
 
 ## Installation
 
 ```bash
-composer require dessimoney/event-source
+composer require funkyoz/event-source
 ```
 
-Requires PHP 8.2 or newer. It works with `symfony/http-foundation` 6.4, 7.x and 8.x.
+Requires PHP 8.2 or newer, and nothing else. The Symfony bridge works with `symfony/http-foundation` 6.4 to 8.x, and
+the Laravel bridge with Laravel 12 and 13.
 
 ## Quick start
 
@@ -54,17 +61,17 @@ Requires PHP 8.2 or newer. It works with `symfony/http-foundation` 6.4, 7.x and 
 ```php
 <?php
 
-use EventSource\Event;
-use EventSource\EventBufferInterface;
-use EventSource\EventSender;
+use FunkyOz\EventSource\Event;
+use FunkyOz\EventSource\EventStream;
+use FunkyOz\EventSource\Stream;
 
 require __DIR__ . '/vendor/autoload.php';
 
-$sender = new EventSender();
-$sender->addWriteListener(function (EventBufferInterface $buffer) {
-    $buffer->write(new Event('time', date('H:i:s')));
-});
-$sender->send();
+EventStream::create()
+    ->onTick(function (Stream $stream) {
+        $stream->send(new Event('time', date('H:i:s')));
+    })
+    ->send();
 ```
 
 **2. The browser** listens for those events:
@@ -88,48 +95,50 @@ PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000
 Open http://localhost:8000 and the time updates every second. The server needs more than one worker, because each
 open stream keeps one busy.
 
-For a complete demo with ids, reconnection and a final event, clone this repository and run `composer example`
-(see [`examples/`](examples)).
+For more, clone this repository and run `composer example`: a resuming counter, a chat, a progress bar, a background
+job, a dashboard and error handling, plus Symfony, Laravel and testing examples. See [`examples/`](examples).
 
 ## How it works
 
-`send()` opens the response and runs your listeners in this order:
+An `EventStream` is the definition of a stream. When it's sent, it runs your listeners in this order:
 
 ```
-start listeners          once, when the stream opens
-     │
-     ▼
-┌─▶ write listeners       every listener, on every iteration
-│    │
-│    ├─ a listener returned true?   ──yes──┐
-│    ▼                                     │
-│   flush output to the client             │
-│    │                                     │
-│    ├─ client disconnected?        ──yes──┤
-│    ▼                                     │
-└── sleep (1 second by default)            │
-                                           ▼
-stop listeners           once, at the end, also after a disconnection
+onStart                  once, when the stream opens
+   │
+   ▼
+┌▶ onTick                every listener, on every tick
+│   │
+│   ├─ stop() called? ──────────────────yes──┐
+│   ├─ client disconnected? ────────────yes──┤
+│   ▼                                        │
+│  wait for the next tick (1 s by default),  │
+│  sending heartbeats if enabled             │
+│   │                                        │
+└───┴─ maximum duration reached? ───────yes──┤
+                                             ▼
+onStop                   once, at the end: also after a disconnection or an error
 ```
 
-Every listener receives the buffer to write events to. A write listener is typically where you check for something
-new, like a database row, a queue message or a job's progress, and send it.
+Each listener receives a `Stream`, which sends events and tells you about the running stream:
 
 ```php
-$sender->addStartListener(function (EventBufferInterface $buffer) {
-    // Runs once, before the loop: open resources, send an initial state...
-});
-
-$sender->addWriteListener(function (EventBufferInterface $buffer) {
-    // Runs on every iteration: send what changed since the last one
-});
-
-$sender->addStopListener(function (EventBufferInterface $buffer) {
-    // Runs once, after the loop: release resources, log the disconnection...
-});
+EventStream::create()
+    ->onStart(function (Stream $stream) {
+        // Once, before the first tick: send the initial state, open resources…
+    })
+    ->onTick(function (Stream $stream) {
+        // On every tick: check for something new (a database row, a queue message, a job's progress) and send it
+    })
+    ->onStop(function (Stream $stream) {
+        // Once, at the end: release resources, log why it ended with $stream->stopReason()
+    })
+    ->send();
 ```
 
 You can add as many listeners of each kind as you need. They run in the order you add them.
+
+A definition holds no state from a run, so you can build it once, for example in a service, and send it to every
+client.
 
 ## Sending events
 
@@ -137,14 +146,14 @@ An event has four fields, all optional:
 
 ```php
 new Event(
-    eventName: 'order-update',          // the type the browser listens for, 'message' by default
+    name: 'order-update',               // the type the browser listens for; null for an unnamed event
     data: '{"id":42,"status":"paid"}',  // the payload, always a string
     id: '42',                           // lets the browser resume from this event after a reconnection
     retry: 5,                           // seconds the browser waits before reconnecting
 );
 ```
 
-This is what the browser receives:
+`$stream->send($event)` sends it to the browser immediately:
 
 ```
 event: order-update
@@ -154,11 +163,10 @@ data: {"id":42,"status":"paid"}
 
 ```
 
-**Sending structured data.** The payload is a string, so encode arrays and objects as JSON, then decode them in the
-browser:
+**JSON.** Most payloads are structured, so `Event::json()` encodes them for you:
 
 ```php
-$buffer->write(new Event('order-update', json_encode($order, JSON_THROW_ON_ERROR)));
+$stream->send(Event::json('order-update', $order, id: (string) $order->id));
 ```
 
 ```js
@@ -169,76 +177,107 @@ source.addEventListener('order-update', (event) => {
 
 **Multi-line data** is supported: each line is sent as its own `data:` field, and the browser joins them back.
 
-**Named and unnamed events.** The browser handles events named `message` (the default) with `source.onmessage`.
-Any other name needs `source.addEventListener('name', ...)`. Pass `null` as the name to omit the `event:` field.
+**Named and unnamed events.** The browser handles unnamed events with `source.onmessage`, and named ones with
+`source.addEventListener('name', …)`.
 
-**Sending immediately.** Everything written during an iteration is flushed at the end of it. To send an event
-straight away, for example before a slow operation, pass `true` as the second argument:
+**Comments** are ignored by the browser, but can be useful for debugging: `$stream->comment('cache miss')`.
 
-```php
-$buffer->write(new Event('progress', 'Starting the export…'), true);
-```
+**Events are immutable.** Use `withName()`, `withData()`, `withId()` and `withRetry()` to get a modified copy.
+
+**Safe by design.** A line break in a name or an id would inject extra fields into the stream, so `Event` rejects
+it with an `InvalidArgumentException`. The same goes for line breaks in header values.
 
 ## Controlling the stream
 
 ### Frequency
 
-Write listeners run every second by default. Change it with `setSleep()`, which accepts fractions of a second:
+Ticks start every second by default. Change it with `every()`, which accepts fractions of a second:
 
 ```php
-$sender->setSleep(0.5);
+EventStream::create()->every(0.5);
 ```
+
+The interval is measured from the start of one tick to the start of the next, so a slow tick doesn't shift the
+schedule.
 
 ### Ending the stream
 
 A stream ends when:
 
-- **a write listener returns `true`**. Return anything else, or nothing, to keep it going;
-- **the client disconnects**, for example because the user closed the tab. The library notices on the next
-  flush, stops the loop and runs your stop listeners.
+- **a listener calls `$stream->stop()`**. The current listener finishes, then the stream ends;
+- **the client disconnects**, for example because the user closed the tab;
+- **the maximum duration is reached**, if you set one;
+- **there are no tick listeners**: the stream ends right after `onStart`.
 
 ```php
-$sender->addWriteListener(function (EventBufferInterface $buffer) use ($job) {
-    $buffer->write(new Event('progress', (string) $job->progress()));
+->onTick(function (Stream $stream) use ($job) {
+    $stream->send(new Event('progress', (string) $job->progress()));
 
-    return $job->isFinished();
-});
+    if ($job->isFinished()) {
+        $stream->stop();
+    }
+})
 ```
+
+`$stream->stopReason()` tells your stop listeners why the stream ended: `StopReason::Stopped`,
+`ClientDisconnected`, `MaxDurationReached` or `Error`.
 
 > [!IMPORTANT]
 > When the server ends a stream, the browser reconnects after a few seconds. That's a feature of `EventSource`. To
 > finish for good, send a last event and close the connection from the browser:
 >
 > ```php
-> $sender->addStopListener(function (EventBufferInterface $buffer) {
->     $buffer->write(new Event('done'));
-> });
+> ->onStop(function (Stream $stream) {
+>     if ($stream->stopReason() === StopReason::Stopped) {
+>         $stream->send(new Event('done'));
+>     }
+> })
 > ```
 >
 > ```js
 > source.addEventListener('done', () => source.close());
 > ```
 >
-> Or, when the client reconnects and there is nothing left to send, answer with `http_response_code(204)` instead
-> of opening a stream: browsers don't reconnect after a `204 No Content` response.
+> Or, when the browser reconnects and there's nothing left to send, answer with `EventStream::sendNoContent()`
+> instead: browsers don't reconnect after a `204 No Content` response.
 
 ### Resuming after a reconnection
 
 When the connection drops, the browser reconnects and sends the `id` of the last event it received in the
-`Last-Event-ID` header. Use it to send only what the client missed:
+`Last-Event-ID` header. `$stream->lastEventId()` returns it, and then follows the ids of the events you send, so
+"send what's new since last time" needs no extra variable:
 
 ```php
-$lastId = (int) ($_SERVER['HTTP_LAST_EVENT_ID'] ?? 0);
-
-$sender->addWriteListener(function (EventBufferInterface $buffer) use (&$lastId) {
-    foreach (Notification::newerThan($lastId) as $notification) {
-        $buffer->write(new Event('notification', $notification->toJson(), (string) $notification->id));
-        $lastId = $notification->id;
+->onTick(function (Stream $stream) {
+    foreach (Notification::newerThan($stream->lastEventId()) as $notification) {
+        $stream->send(Event::json('notification', $notification, id: (string) $notification->id));
     }
-});
+})
 ```
 
-Set `retry` on any event to change how long the browser waits before reconnecting.
+`retry()` tells the browser how long to wait before reconnecting. It's sent once, when the stream starts:
+
+```php
+EventStream::create()->retry(5);
+```
+
+### Heartbeats
+
+Proxies and load balancers often close connections that look idle, typically after 30 to 60 seconds. With
+`heartbeat()`, the stream sends a comment when nothing was written for that long, even between ticks:
+
+```php
+EventStream::create()->every(60)->heartbeat(15);
+```
+
+### Maximum duration
+
+A stream that runs forever eventually hits `max_execution_time`, or leaks memory. Ending it regularly is the healthy
+pattern: the browser reconnects, and with `Last-Event-ID` it doesn't miss anything.
+
+```php
+EventStream::create()->maxDuration(300);
+```
 
 ### Headers
 
@@ -246,138 +285,124 @@ The response is sent with `Content-Type: text/event-stream`, `Cache-Control: no-
 `X-Accel-Buffering: no`. You can add or replace headers, for example to allow another origin:
 
 ```php
-$sender->addHeader('Access-Control-Allow-Origin', 'https://app.example.com');
-
-$sender->addHeaders([
-    'Access-Control-Allow-Origin' => 'https://app.example.com',
-    'Access-Control-Allow-Credentials' => 'true',
-]);
+EventStream::create()
+    ->header('Access-Control-Allow-Origin', 'https://app.example.com')
+    ->headers(['Access-Control-Allow-Credentials' => 'true']);
 ```
 
-## Using it in a framework
+## Symfony, Laravel and other frameworks
 
-`send()` streams the events while it runs, then returns the Symfony `StreamedResponse` it sent. Symfony streams a
-response only once, so you can return it from a controller.
+In plain PHP, `$stream->send()` sends the headers and the events. In a framework, return a response instead: the
+framework sends it, and middleware, listeners and the profiler keep working.
 
 **Symfony**
 
 ```php
-#[Route('/events')]
-public function events(): StreamedResponse
-{
-    $sender = new EventSender();
-    $sender->addWriteListener(function (EventBufferInterface $buffer) {
-        $buffer->write(new Event('time', date('H:i:s')));
-    });
+use FunkyOz\EventSource\Bridge\Symfony\StreamedResponseFactory;
 
-    return $sender->send();
+#[Route('/notifications')]
+public function notifications(Request $request): StreamedResponse
+{
+    $stream = EventStream::create()->onTick(/* … */);
+
+    return StreamedResponseFactory::create($stream, $request); // the request provides Last-Event-ID
 }
 ```
+
+To stop the browser from reconnecting, return `StreamedResponseFactory::noContent()`.
 
 **Laravel**
 
-```php
-Route::get('/events', function () {
-    $sender = new EventSender();
-    $sender->addWriteListener(function (EventBufferInterface $buffer) {
-        $buffer->write(new Event('time', date('H:i:s')));
-    });
+The package registers itself, and adds a `sse` response macro:
 
-    return $sender->send();
+```php
+Route::get('/notifications', function () {
+    $stream = EventStream::create()->onTick(/* … */);
+
+    return response()->sse($stream); // reads Last-Event-ID from the current request
 });
 ```
 
-Because the stream is sent while `send()` runs, middleware that changes the response afterwards, for example to
-add headers, has no effect on it. Set headers with `addHeader()` instead.
+To stop the browser from reconnecting, return `response()->noContent()`.
 
-## Customizing the output
+**Other frameworks**
 
-### Writing somewhere else
-
-The default buffer writes to the PHP output. Give it any stream to write somewhere else, for example a file to
-record what you send:
+Any framework that accepts Symfony responses, like Laravel or Drupal, can use `StreamedResponseFactory`.
+For others, run the stream from the framework's own streamed response, with the `PhpOutput` the library uses:
 
 ```php
-use EventSource\EventBuffer;
-
-$sender = new EventSender(new EventBuffer(fopen('/tmp/events.log', 'a')));
+$stream->run(new PhpOutput(), $lastEventIdFromTheRequest);
 ```
 
-`EventBuffer::format()` returns an event as text without writing it:
+Send the headers from `$stream->getHeaders()` with the response.
+
+## Streams from a generator
+
+For a stream with a natural end, like the progress of a job, a generator reads well. Every event it yields is sent
+immediately:
 
 ```php
-echo EventBuffer::format(new Event('ping', 'hello'));
-// event: ping
-// data: hello
-```
-
-### Your own buffer
-
-Implement `EventBufferInterface` to change how events are written, for example to add a field to every payload:
-
-```php
-use EventSource\Event;
-use EventSource\EventBuffer;
-use EventSource\EventBufferInterface;
-
-final class TimestampedBuffer implements EventBufferInterface
-{
-    public function __construct(private EventBufferInterface $inner = new EventBuffer()) {}
-
-    public function write(Event $event, bool $flush = false): void
-    {
-        $data = json_decode($event->getData() ?? '{}', true, flags: JSON_THROW_ON_ERROR);
-        $data['sentAt'] = date(DATE_ATOM);
-        $event->setData(json_encode($data, JSON_THROW_ON_ERROR));
-
-        $this->inner->write($event, $flush);
+$stream = EventStream::fromGenerator(function (Stream $stream) use ($job) {
+    foreach ($job->run() as $percent) {
+        yield Event::json('progress', ['percent' => $percent]);
     }
-}
-
-$sender = new EventSender(new TimestampedBuffer());
+    yield new Event('done');
+});
 ```
 
-## Testing your code
+`onStart`, `onStop`, `onError`, `maxDuration()` and `retry()` work the same way. `onTick()`, `every()` and
+`heartbeat()` don't apply, since the stream never waits between events: calling them throws a `LogicException`.
 
-You don't need a browser or a server to test your listeners.
+## Errors
 
-**Capture the events** by writing them to a memory stream:
+When a listener or the generator throws:
+
+1. your `onError` listeners are called. They can still send an event to the browser;
+2. the `onStop` listeners run, with `StopReason::Error`;
+3. the output is closed;
+4. without `onError` listeners, the exception is then rethrown, so errors are never silent.
 
 ```php
-$stream = fopen('php://memory', 'w+');
-$buffer = new EventBuffer($stream);
-
-$listener($buffer); // the listener you want to test
-
-rewind($stream);
-self::assertSame("event: time\ndata: 12:00:00\n\n", stream_get_contents($stream));
+->onError(function (\Throwable $e, Stream $stream) use ($logger) {
+    $logger->error('Stream failed', ['exception' => $e]);
+    $stream->send(new Event('error', 'Temporary problem, reconnecting…'));
+})
 ```
 
-**Test a whole stream** without waiting, by replacing the runtime that flushes, sleeps and checks the connection:
+An exception inside `onStop` or `onError` itself isn't caught: it's a bug in the cleanup code.
+
+## Testing
+
+`StreamTester` runs a stream instantly: it doesn't wait between ticks, and it returns what the browser would have
+received.
 
 ```php
-use EventSource\RuntimeInterface;
+use FunkyOz\EventSource\Testing\StreamTester;
 
-final class InstantRuntime implements RuntimeInterface
-{
-    public int $flushes = 0;
+$result = StreamTester::for($stream)
+    ->withLastEventId('41')  // simulate a reconnection
+    ->disconnectAfter(3)     // simulate the user leaving after 3 ticks
+    ->run();
 
-    public function flush(): void
-    {
-        $this->flushes++;
-    }
+self::assertCount(2, $result->events('notification'));
+self::assertSame('42', $result->events()[0]->id);
+self::assertSame(StopReason::ClientDisconnected, $result->stopReason());
+self::assertSame([1.0, 1.0], $result->sleeps());
+```
 
-    public function sleep(float $seconds): void {} // don't wait
+A stream that never ends makes `run()` throw after 10,000 iterations, so a test can't hang. Change the limit with
+`iterationLimit()`.
 
-    public function isConnectionAborted(): bool
-    {
-        return $this->flushes >= 3; // pretend the client leaves after 3 iterations
-    }
-}
+For finer control, run a stream yourself with `Testing\MemoryOutput`, which keeps the output and can simulate a
+disconnection, and `Testing\FakeClock`, which moves time forward instead of waiting:
 
-$stream = fopen('php://memory', 'w+');
-$runtime = new InstantRuntime();
-$sender = new EventSender(new EventBuffer($stream, $runtime), $runtime);
+```php
+$clock = new FakeClock();
+$output = new MemoryOutput();
+
+$stream->run($output, lastEventId: null, clock: $clock);
+
+$events = $output->parse()->events;
 ```
 
 ## Running it in production
@@ -386,71 +411,139 @@ Each open stream is a PHP request that stays alive, so a few settings matter:
 
 | Topic | What to do |
 |---|---|
-| **Sessions** | PHP locks the session for the whole request, which blocks the user's other requests. Call `session_write_close()` before `send()`. |
-| **Time limit** | Long streams can hit `max_execution_time`. Call `set_time_limit(0)` for long-lived streams, or end the stream regularly and let the browser reconnect. |
+| **Sessions** | PHP locks the session for the whole request, which blocks the user's other requests. Call `session_write_close()` before sending the stream. |
+| **Time limit** | Use `maxDuration()` to end streams before `max_execution_time`, or call `set_time_limit(0)`. |
+| **Proxies and load balancers** | Use `heartbeat()` with an interval below their idle timeout. |
 | **Workers** | Every connected client keeps a PHP-FPM worker busy. Size `pm.max_children` for your expected number of open streams. |
-| **nginx** | Response buffering is disabled by the `X-Accel-Buffering: no` header. Also make sure `gzip` is off for this endpoint. |
+| **nginx** | Response buffering is disabled by the `X-Accel-Buffering: no` header. Also make sure `gzip` is off for the endpoint. |
 | **Apache** | Disable compression for the endpoint (`mod_deflate` buffers the response), e.g. `SetEnv no-gzip 1`. |
-| **Proxies and load balancers** | Raise idle timeouts above your `setSleep()` interval, or send a regular event (a heartbeat) so the connection never looks idle. |
 | **HTTP/1.1** | Browsers allow only 6 connections per domain, shared by all tabs. Serve the endpoint over HTTP/2 to avoid the limit. |
+| **Async servers** | Laravel Octane, Swoole, RoadRunner and ReactPHP aren't supported: the stream waits between ticks, which would block the server. |
 
-Each client is served by one long-running PHP request, which checks for new data on every iteration. This fits
+Each client is served by one long-running PHP request, which checks for new data on every tick. This fits
 notifications, progress bars, dashboards and live feeds. For thousands of simultaneous clients, consider a dedicated
 real-time server such as [Mercure](https://mercure.rocks).
 
+## Why this library?
+
+Symfony 7.3 and Laravel 11 added basic Server-Sent Events support. This library does more:
+
+| | Symfony `EventStreamResponse` | Laravel `response()->eventStream()` | This library |
+|---|---|---|---|
+| Plain PHP, no framework | ❌ | ❌ | ✅ |
+| Same API in every framework | ❌ | ❌ | ✅ |
+| Event ids and `retry` | ✅ | ❌ | ✅ |
+| `Last-Event-ID` for resuming | do it yourself | do it yourself | ✅ |
+| Polling at a fixed interval | do it yourself | do it yourself | ✅ |
+| Start and stop hooks, also after a disconnection | ❌ | ❌ | ✅ |
+| Heartbeats and maximum duration | ❌ | ❌ | ✅ |
+| Testing helpers | ❌ | ❌ | ✅ |
+
 ## API reference
 
-### `EventSender`
+### `EventStream`
 
 | Method | Description |
 |---|---|
-| `__construct(?EventBufferInterface $buffer = null, ?RuntimeInterface $runtime = null)` | Uses `EventBuffer` and `PhpRuntime` when not given |
-| `addStartListener(callable $listener)` | Called once before the loop, with the buffer |
-| `addWriteListener(callable $listener)` | Called on every iteration, with the buffer. Return `true` to end the stream |
-| `addStopListener(callable $listener)` | Called once after the loop, with the buffer, also after a disconnection |
-| `setSleep(float $seconds)` | Pause between iterations, 1 second by default |
-| `addHeader(?string $key, ?string $value)` | Adds or replaces a response header |
-| `addHeaders(array $headers)` | Adds or replaces several headers, as `name => value` |
-| `setBuffer(EventBufferInterface $buffer)` | Replaces the buffer |
-| `getListeners()` | Returns the registered listeners by type (`start`, `write`, `stop`) |
-| `send(): StreamedResponse` | Streams the events, then returns the response that was sent |
+| `create()` | A stream that calls the tick listeners at a regular interval |
+| `fromGenerator(callable $generator)` | A stream that sends every event the generator yields |
+| `every(float $seconds)` | Seconds between the start of two ticks, 1 by default |
+| `heartbeat(?float $seconds)` | Send a comment when nothing was written for this long. Off by default |
+| `maxDuration(?float $seconds)` | End the stream after this long. No limit by default |
+| `retry(?float $seconds)` | Reconnection delay sent to the browser when the stream starts |
+| `header(string $name, string $value)` / `headers(array $headers)` | Add or replace response headers |
+| `onStart(callable $listener)` | `fn (Stream $stream)`, called once at the start |
+| `onTick(callable $listener)` | `fn (Stream $stream)`, called on every tick |
+| `onStop(callable $listener)` | `fn (Stream $stream)`, called once at the end |
+| `onError(callable $listener)` | `fn (\Throwable $e, Stream $stream)`, called when a listener or the generator throws |
+| `send()` | Send the stream with plain PHP: headers, then events |
+| `sendNoContent()` | Answer with `204 No Content`, so the browser stops reconnecting |
+| `run(Output $output, ?string $lastEventId = null, ?Clock $clock = null): StopReason` | Run against any output, without sending headers. For adapters and tests |
+| `getHeaders(): array` | The response headers, including the defaults |
+
+### `Stream`
+
+| Method | Description |
+|---|---|
+| `send(Event $event)` | Send an event immediately |
+| `comment(string $text = '')` | Send a comment, which the browser ignores |
+| `stop()` / `isStopped()` | End the stream after the current listener |
+| `lastEventId(): ?string` | `Last-Event-ID` from the browser, then the id of the last event sent |
+| `iteration(): int` | 0 in `onStart`, then 1, 2, 3… for each tick or generated event |
+| `elapsed(): float` | Seconds since the stream started |
+| `stopReason(): ?StopReason` | Why the stream ended, in `onStop` |
 
 ### `Event`
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `eventName` | `?string` | `'message'` | Event type; `null` omits it |
-| `data` | `?string` | `null` | Payload; multi-line strings are supported |
+| `name` | `?string` | `null` | Event type; `null` for an unnamed event |
+| `data` | `string` | `''` | Payload; multi-line strings are supported |
 | `id` | `?string` | `null` | Sent back by the browser in `Last-Event-ID` after a reconnection |
-| `retry` | `?int` | `null` | Seconds the browser waits before reconnecting |
+| `retry` | `?float` | `null` | Seconds the browser waits before reconnecting |
 
-Each field has a getter and a setter, e.g. `getData()` and `setData()`.
+The fields are public and read-only. `Event::json($name, $data, $id, $retry)` encodes the data as JSON.
 
-### `EventBuffer` (implements `EventBufferInterface`)
+### Bridges
 
-| Method | Description |
+| Class | Description |
 |---|---|
-| `__construct($stream = null, ?RuntimeInterface $runtime = null)` | Writes to the given stream, or to the PHP output |
-| `write(Event $event, bool $flush = false)` | Writes the event, and sends it immediately when `$flush` is `true` |
-| `static format(Event $event): string` | Returns the event as `text/event-stream` text |
+| `Bridge\Symfony\StreamedResponseFactory::create(EventStream $stream, ?Request $request = null)` | A Symfony `StreamedResponse` |
+| `Bridge\Symfony\StreamedResponseFactory::noContent()` | A `204 No Content` response |
+| `Bridge\Laravel\EventSourceServiceProvider` | Adds `response()->sse($stream)`. Registered automatically |
 
-### `RuntimeInterface`
+### Extension points
 
-Flushing, sleeping and disconnection checks: `flush()`, `sleep(float $seconds)` and `isConnectionAborted()`.
-`PhpRuntime` is the default implementation; replace it in tests.
+| Type | Description |
+|---|---|
+| `Output` | Where a stream is written: `open()`, `write()`, `flush()`, `isConnectionAborted()`, `close()`. Implemented by `PhpOutput` (the PHP output) and `StreamOutput` (any stream resource) |
+| `Clock` | `now()` and `sleep()`. Implemented by `SystemClock` |
+| `EventFormatter` | Turns an event or a comment into `text/event-stream` text |
 
 ## Upgrading from 1.x
 
-Version 2.0 fixes how streams behave, which changes a few things:
+Version 2.0 is a new API, published under a new name: `funkyoz/event-source` replaces `dessimoney/event-source`.
+The namespaces are different, so both can be installed at the same time while you migrate.
 
-- **Streams stay open**: write listeners now run until one returns `true` or the client disconnects. In 1.x they
-  ran once. If you relied on that, return `true` from your write listener.
-- **No default `retry`**: events no longer ask the browser to wait 3 seconds before reconnecting. Pass
-  `retry: 3` to keep the old behavior.
-- **Stopping needs `true`**: only `true` ends the stream, not other truthy values like `1`.
-- **PHP 8.2** is now the minimum version.
+```bash
+composer require funkyoz/event-source
+composer remove dessimoney/event-source   # when you're done
+```
 
-See the [changelog](CHANGELOG.md) for the full list.
+| 1.x | 2.0 |
+|---|---|
+| `EventSource\` namespace | `FunkyOz\EventSource\` |
+| `new EventSender()` | `EventStream::create()` |
+| `addStartListener(fn (EventBufferInterface $buffer) => …)` | `onStart(fn (Stream $stream) => …)` |
+| `addWriteListener(…)`, return `true` to stop | `onTick(…)`, call `$stream->stop()` |
+| `addStopListener(…)` | `onStop(…)`, with `$stream->stopReason()` |
+| `$buffer->write($event)` | `$stream->send($event)` |
+| `new Event('name', 'data', 'id', 3)` | The same. The default name is now `null` instead of `'message'` |
+| `$event->getData()` / `setData()` | `$event->data` / `withData()` |
+| `setSleep(1)` | `every(1)` |
+| `addHeader()` / `addHeaders()` | `header()` / `headers()` |
+| `$sender->send()` | Plain PHP: `$stream->send()`. Symfony: `StreamedResponseFactory::create()`. Laravel: `response()->sse()` |
+| `setBuffer()`, `EventBufferInterface`, `EventBuffer` | Removed. See [Extension points](#extension-points) |
+| Requires `symfony/http-foundation` | No dependencies |
+
+See the [complete migration guide](docs/upgrading-from-1.x.md), and the [changelog](CHANGELOG.md) for the full list
+of changes.
+
+## Documentation
+
+| | |
+|---|---|
+| [Getting started](docs/getting-started.md) | A first stream, step by step |
+| [How it works](docs/how-it-works.md) | The lifecycle of a stream |
+| [Events](docs/events.md), [Controlling streams](docs/controlling-streams.md), [Generator streams](docs/generator-streams.md), [Error handling](docs/error-handling.md) | Everything a stream can do |
+| [Frameworks](docs/frameworks.md) | Symfony, Laravel and others |
+| [Testing](docs/testing.md) | Test streams without a server or waiting |
+| [Running in production](docs/production.md) | PHP-FPM, nginx, Apache, sessions, proxies, scaling |
+| [Recipes](docs/recipes.md) | Notifications, job progress, dashboards… |
+| [Troubleshooting](docs/troubleshooting.md) | Symptoms, causes and fixes |
+| [Extending](docs/extending.md) | Custom outputs, and adapters for other frameworks |
+| [API reference](docs/api-reference.md) | Every public class and method |
+| [Upgrading from 1.x](docs/upgrading-from-1.x.md) | The complete migration guide |
 
 ## Contributing
 

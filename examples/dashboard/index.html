@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<p class="back"><a href="../">← All examples</a></p>
+<h1>Dashboard</h1>
+<p class="lead">The stream checks the server's metrics every second, but only sends them when they change. In
+    between, a heartbeat every 5 seconds keeps the connection open. Browsers hide heartbeats; see them with
+    <code>curl -N http://localhost:8000/dashboard/events.php</code>.</p>
+
+<p>Status: <span class="status" id="status">connecting…</span></p>
+<div class="cards">
+    <div class="card"><p>Load, 1 min</p><div class="metric" id="load1">–</div></div>
+    <div class="card"><p>Load, 5 min</p><div class="metric" id="load5">–</div></div>
+    <div class="card"><p>Free disk</p><div class="metric" id="disk">–</div></div>
+    <div class="card"><p>PHP</p><div class="metric" id="php">–</div></div>
+</div>
+<p id="updates">No update yet.</p>
+
+<script>
+    const status = document.getElementById('status');
+    const source = new EventSource('events.php');
+    let updates = 0;
+
+    source.onopen = () => {
+        status.textContent = 'open';
+        status.className = 'status open';
+    };
+    source.onerror = () => {
+        status.textContent = 'reconnecting…';
+        status.className = 'status reconnecting';
+    };
+
+    source.addEventListener('metrics', (event) => {
+        const metrics = JSON.parse(event.data);
+        document.getElementById('load1').textContent = metrics.load?.[0] ?? 'n/a';
+        document.getElementById('load5').textContent = metrics.load?.[1] ?? 'n/a';
+        document.getElementById('disk').textContent = metrics.disk_free_gb === null ? 'n/a' : metrics.disk_free_gb + ' GB';
+        document.getElementById('php').textContent = metrics.php;
+        document.getElementById('updates').textContent = `${++updates} updates received, the last one at ${metrics.changed_at}.`;
+    });
+</script>
+</body>
+</html>

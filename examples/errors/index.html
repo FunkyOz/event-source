@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Errors</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<p class="back"><a href="../">← All examples</a></p>
+<h1>Errors</h1>
+<p class="lead">This stream throws an exception on its third tick. The <code>onError</code> listener sends a
+    <code>server-error</code> event, the <code>onStop</code> listener reports the stop reason, and the browser
+    reconnects 3 seconds later, with <code>retry(3)</code>.</p>
+
+<p>Status: <span class="status" id="status">connecting…</span> <button id="stop" type="button">Stop</button></p>
+<div class="log" id="log"></div>
+
+<script>
+    const log = document.getElementById('log');
+    const status = document.getElementById('status');
+    const source = new EventSource('events.php');
+
+    function append(line) {
+        log.textContent += `[${new Date().toLocaleTimeString()}] ${line}\n`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    source.onopen = () => {
+        status.textContent = 'open';
+        status.className = 'status open';
+        append('connected');
+    };
+    source.onerror = () => {
+        status.textContent = 'reconnecting…';
+        status.className = 'status reconnecting';
+    };
+
+    source.addEventListener('tick', (event) => append('tick ' + event.data));
+    source.addEventListener('server-error', (event) => append('server error: ' + event.data));
+    source.addEventListener('stopped', (event) => append('stopped, reason: ' + event.data));
+
+    document.getElementById('stop').onclick = () => {
+        source.close();
+        status.textContent = 'closed';
+        status.className = 'status closed';
+    };
+</script>
+</body>
+</html>

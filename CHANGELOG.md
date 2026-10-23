@@ -7,40 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Planned as 2.0.0: it contains breaking changes.
+The package is renamed from `dessimoney/event-source` to `funkyoz/event-source`, with a new API. Both can be
+installed at the same time, since their namespaces differ. See [Upgrading from 1.x](docs/upgrading-from-1.x.md).
 
 ### Changed
 
-- **Breaking:** write listeners are now called on every iteration until one of them returns `true` or the
-  client disconnects. Before, they were called only once and the connection was closed after one second.
-- **Breaking:** only a listener returning exactly `true` stops the stream.
-- **Breaking:** `Event` no longer sets `retry` to 3 seconds by default; `retry:` is sent only when set.
-- **Breaking:** the minimum PHP version is now 8.2.
-- **Breaking:** `id:` and `retry:` are now written before `data:`, so the `id` belongs to its own event,
-  following the specification.
-- Supports `symfony/http-foundation` 6.4, 7.x and 8.x.
-- `EventSender::setSleep()` accepts fractions of a second and rejects negative values.
-- `Event` accepts a `null` event name in the constructor, as the setter already did.
-- `EventBuffer` writes to `php://output` by default, or to any stream passed to the constructor.
-- The output buffer is closed only when `EventSender` opened it.
+- **Breaking:** the package is now `funkyoz/event-source`, with the `FunkyOz\EventSource\` namespace.
+- **Breaking:** new API. `EventStream` defines a stream, with `onStart`, `onTick`, `onStop` and `onError`
+  listeners. Listeners receive a `Stream`, which sends events and ends the stream with `stop()`.
+- **Breaking:** `Event` is immutable, with public read-only fields and `with*()` methods. Its default name is `null`
+  instead of `'message'`, and `retry` accepts fractions of a second.
+- **Breaking:** no dependencies. `symfony/http-foundation` is only needed for the Symfony bridge.
+- **Breaking:** the minimum PHP version is 8.2.
+- Events are sent to the browser as soon as they are written, instead of at the end of an iteration.
+- Ticks start at a fixed interval, whatever the listeners take.
 
 ### Added
 
-- `RuntimeInterface` and `PhpRuntime`, to control flushing, sleeping and disconnection detection.
-- `EventBuffer::format()` to serialize an event without writing it.
-- A runnable example in `examples/`.
-- The `LICENSE` file.
+- Plain PHP support with `EventStream::send()` and `EventStream::sendNoContent()`.
+- Symfony bridge: `Bridge\Symfony\StreamedResponseFactory`, for `symfony/http-foundation` 6.4 to 8.x.
+- Laravel bridge: the `response()->sse($stream)` macro, registered automatically, for Laravel 12 and 13.
+- Generator streams with `EventStream::fromGenerator()`.
+- `Last-Event-ID` support with `Stream::lastEventId()`, which follows the events sent.
+- Heartbeats, a maximum duration and a reconnection delay for the whole stream: `heartbeat()`, `maxDuration()`
+  and `retry()`.
+- `StopReason`, which tells the stop listeners why the stream ended.
+- `Event::json()`, and comments with `Stream::comment()`.
+- Testing helpers: `Testing\StreamTester`, `Testing\MemoryOutput`, `Testing\FakeClock` and `Testing\EventParser`.
+- `Output` and `Clock` interfaces, with `PhpOutput`, `StreamOutput` and `SystemClock`.
+- Runnable examples in `examples/` (a counter, a chat, a progress bar, a background job, a dashboard, errors), with
+  Symfony, Laravel and testing examples. Complete documentation in `docs/`, and the `LICENSE` file.
 
 ### Fixed
 
-- Multi-line data is split into multiple `data:` fields instead of breaking the stream.
-- Stop listeners are called even when the client disconnects.
-- Output written by the last write listener and by stop listeners is flushed.
-- The `Transfer-Encoding` header is no longer sent.
+- The stream kept running only for one iteration: it now runs until it's stopped, the client disconnects or the
+  maximum duration is reached.
+- `id:` and `retry:` were written after the blank line that ends an event, so they applied to the next event.
+- Multi-line data broke the stream.
+- Every event asked the browser to wait 3 seconds before reconnecting.
+- Stop listeners didn't run when the client disconnected, or when a listener threw an exception.
+- Event names, ids and header values can no longer contain line breaks, which could inject fields into the stream.
 
 ### Removed
 
-- The `composer.lock` file: the library is tested against the lowest and the highest allowed dependencies.
+- `EventSender`, `EventBuffer` and `EventBufferInterface`. See [Upgrading from 1.x](docs/upgrading-from-1.x.md).
+
+## [1.0.10] - 2025-11-13
+
+### Removed
+
+- The `Transfer-Encoding` header.
+
+## [1.0.9] - 2025-11-13
+
+### Fixed
+
+- The output buffer is closed only when `EventSender` opened it.
+
+## [1.0.8] - 2025-04-08
+
+### Changed
+
+- The minimum PHP version is now 8.1, and `symfony/http-foundation` 7 is required.
 
 ## [1.0.7] - 2022-03-08
 
@@ -94,7 +122,10 @@ Planned as 2.0.0: it contains breaking changes.
 
 - First release.
 
-[Unreleased]: https://github.com/FunkyOz/event-source/compare/1.0.7...HEAD
+[Unreleased]: https://github.com/FunkyOz/event-source/compare/1.0.10...HEAD
+[1.0.10]: https://github.com/FunkyOz/event-source/compare/1.0.9...1.0.10
+[1.0.9]: https://github.com/FunkyOz/event-source/compare/1.0.8...1.0.9
+[1.0.8]: https://github.com/FunkyOz/event-source/compare/1.0.7...1.0.8
 [1.0.7]: https://github.com/FunkyOz/event-source/compare/1.0.6...1.0.7
 [1.0.6]: https://github.com/FunkyOz/event-source/compare/1.0.5...1.0.6
 [1.0.5]: https://github.com/FunkyOz/event-source/compare/1.0.4...1.0.5

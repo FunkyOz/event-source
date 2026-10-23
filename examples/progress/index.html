@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Progress bar</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<p class="back"><a href="../">← All examples</a></p>
+<h1>Progress bar</h1>
+<p class="lead">A <a href="https://github.com/FunkyOz/event-source/blob/main/docs/generator-streams.md">generator stream</a> runs a task inside the request,
+    and yields an event after each step. The page closes the connection on the final event, so the browser doesn't
+    start the task again.</p>
+
+<p><button id="start" type="button">Start the task</button></p>
+<progress id="bar" max="100" value="0"></progress>
+<p id="text">Not started.</p>
+
+<script>
+    const bar = document.getElementById('bar');
+    const text = document.getElementById('text');
+    const start = document.getElementById('start');
+
+    start.onclick = () => {
+        start.disabled = true;
+        bar.value = 0;
+        text.textContent = 'Starting…';
+
+        const source = new EventSource('events.php');
+
+        source.addEventListener('progress', (event) => {
+            const progress = JSON.parse(event.data);
+            bar.value = progress.percent;
+            text.textContent = `Step ${progress.step} of ${progress.total}`;
+        });
+
+        source.addEventListener('done', (event) => {
+            // Without this, the browser would reconnect, and run the task again
+            source.close();
+            text.textContent = `Done in ${JSON.parse(event.data).seconds} s.`;
+            start.disabled = false;
+        });
+
+        source.onerror = () => {
+            source.close();
+            text.textContent = 'The connection failed.';
+            start.disabled = false;
+        };
+    };
+</script>
+</body>
+</html>

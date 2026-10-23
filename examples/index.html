@@ -3,55 +3,39 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Event Source example</title>
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
-        #log { font-family: ui-monospace, monospace; white-space: pre-wrap; background: #f4f4f5; padding: 1rem; border-radius: .5rem; min-height: 10rem; }
-        .status { font-weight: 600; }
-    </style>
+    <title>Event Source examples</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>Event Source example</h1>
-<p>Status: <span class="status" id="status">connecting…</span></p>
-<p>
-    <button id="close" type="button">Close connection</button>
-    <button id="restart" type="button">Restart from zero</button>
-</p>
-<div id="log"></div>
+<h1>Event Source examples</h1>
+<p class="lead">Each example shows one feature of <code>funkyoz/event-source</code>. Their code is in the
+    <code>examples/</code> folder.</p>
 
-<script>
-    const log = document.getElementById('log');
-    const status = document.getElementById('status');
-    let source;
-
-    function append(line) {
-        log.textContent += line + '\n';
-    }
-
-    function connect() {
-        source = new EventSource('events.php');
-        source.onopen = () => (status.textContent = 'open');
-        source.onerror = () => (status.textContent = source.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting…');
-        source.addEventListener('hello', (e) => append('hello: ' + e.data));
-        source.addEventListener('tick', (e) => append(`tick (id ${e.lastEventId}): ${e.data}`));
-        source.addEventListener('done', (e) => {
-            append('done: ' + e.data);
-            source.close();
-            status.textContent = 'closed';
-        });
-    }
-
-    document.getElementById('close').onclick = () => {
-        source.close();
-        status.textContent = 'closed';
-    };
-    document.getElementById('restart').onclick = () => {
-        source.close();
-        log.textContent = '';
-        connect();
-    };
-
-    connect();
-</script>
+<div class="cards">
+    <a class="card" href="counter/">
+        <h2>Counter</h2>
+        <p>Event ids, resuming with <code>Last-Event-ID</code>, and a final event.</p>
+    </a>
+    <a class="card" href="chat/">
+        <h2>Chat</h2>
+        <p>Messages from a database, sent to every open tab. History on the first connection.</p>
+    </a>
+    <a class="card" href="progress/">
+        <h2>Progress bar</h2>
+        <p>A generator stream that runs a task and reports its progress.</p>
+    </a>
+    <a class="card" href="job/">
+        <h2>Background job</h2>
+        <p>Follow a job, survive a page reload, and stop reconnecting with <code>204</code>.</p>
+    </a>
+    <a class="card" href="dashboard/">
+        <h2>Dashboard</h2>
+        <p>Server metrics, sent only when they change, with heartbeats in between.</p>
+    </a>
+    <a class="card" href="errors/">
+        <h2>Errors</h2>
+        <p>A failing stream: error listeners, stop reasons and reconnection.</p>
+    </a>
+</div>
 </body>
 </html>

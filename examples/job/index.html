@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Background job</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<p class="back"><a href="../">← All examples</a></p>
+<h1>Background job</h1>
+<p class="lead">A job runs for 10 seconds, outside of the stream. The stream reports its progress. Reload the page
+    during the job: it follows it again. Once the job is over, the stream answers <code>204 No Content</code>, and
+    the browser stops reconnecting.</p>
+
+<p><button id="start" type="button">Start a job</button> <span id="job"></span></p>
+<progress id="bar" max="100" value="0"></progress>
+<p>Status: <span class="status" id="status">no job</span></p>
+<div class="log" id="log"></div>
+
+<script>
+    const bar = document.getElementById('bar');
+    const status = document.getElementById('status');
+    const log = document.getElementById('log');
+    const start = document.getElementById('start');
+    let source = null;
+
+    function setStatus(text, state) {
+        status.textContent = text;
+        status.className = 'status ' + state;
+    }
+
+    function append(line) {
+        log.textContent += `[${new Date().toLocaleTimeString()}] ${line}\n`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function follow(jobId) {
+        source?.close();
+        document.getElementById('job').textContent = 'Job ' + jobId;
+        source = new EventSource('events.php?job=' + encodeURIComponent(jobId));
+
+        source.onopen = () => {
+            setStatus('following', 'open');
+            append('connected');
+        };
+        source.addEventListener('progress', (event) => {
+            bar.value = JSON.parse(event.data).percent;
+        });
+        source.addEventListener('done', () => {
+            source.close();
+            setStatus('finished', 'closed');
+            append('the job is done');
+            start.disabled = false;
+        });
+        source.onerror = () => {
+            if (source.readyState === EventSource.CLOSED) {
+                // A 204 closes the EventSource: the job was already over, or unknown
+                setStatus('nothing to follow', 'closed');
+                append('the server answered 204: no reconnection');
+                start.disabled = false;
+            } else {
+                setStatus('reconnecting…', 'reconnecting');
+            }
+        };
+    }
+
+    start.onclick = async () => {
+        start.disabled = true;
+        bar.value = 0;
+        const { id } = await (await fetch('start.php', { method: 'POST' })).json();
+        // In the URL, so that a reload follows the same job
+        location.hash = id;
+        follow(id);
+    };
+
+    if (location.hash.length > 1) {
+        start.disabled = true;
+        follow(location.hash.slice(1));
+    }
+</script>
+</body>
+</html>

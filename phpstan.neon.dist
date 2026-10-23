@@ -5,3 +5,7 @@ parameters:
         - ./src
         - ./tests
         - ./examples
+        - ./scripts
+    excludePaths:
+        # Uses response()->sse(), a Laravel macro that PHPStan can't see without the Larastan extension
+        - ./examples/frameworks/laravel

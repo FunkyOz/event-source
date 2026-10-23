@@ -64,6 +64,48 @@ jobs:
       - name: PHPUnit
         run: composer tests:unit
 
+  dependency-sets:
+    name: ${{ matrix.name }} (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The core has no dependencies: check it works without any framework installed
+          - name: No framework
+            php: '8.2'
+            remove: orchestra/testbench symfony/http-foundation
+            suites: core
+          - name: No framework
+            php: '8.5'
+            remove: orchestra/testbench symfony/http-foundation
+            suites: core
+          # Laravel needs Symfony 7+, so Symfony 6.4 is only tested here
+          - name: Symfony 6.4 only
+            php: '8.2'
+            remove: orchestra/testbench
+            require: symfony/http-foundation:6.4.*
+            suites: core,symfony
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Change the development dependencies
+        run: |
+          composer remove --dev --no-update ${{ matrix.remove }}
+          if [ -n "${{ matrix.require }}" ]; then composer require --dev --no-update ${{ matrix.require }}; fi
+
+      - uses: ramsey/composer-install@v4
+        with:
+          dependency-versions: highest
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit --testsuite ${{ matrix.suites }}
+
   mutation:
     name: Coverage and mutation tests
     runs-on: ubuntu-latest

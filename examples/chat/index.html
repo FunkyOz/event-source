@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chat</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<p class="back"><a href="../">← All examples</a></p>
+<h1>Chat</h1>
+<p class="lead">Open this page in two tabs, and send a message. Messages are stored in a database; the stream
+    checks for new ones twice per second. The first connection gets the last 20 messages, and a reconnection only
+    what it missed.</p>
+
+<p>Status: <span class="status" id="status">connecting…</span></p>
+<form id="form">
+    <input name="author" placeholder="Your name" maxlength="30" required>
+    <input name="text" placeholder="Message" maxlength="500" required autocomplete="off">
+    <button type="submit">Send</button>
+</form>
+<div class="log" id="log"></div>
+
+<script>
+    const log = document.getElementById('log');
+    const status = document.getElementById('status');
+    const form = document.getElementById('form');
+    const source = new EventSource('events.php');
+
+    source.onopen = () => {
+        status.textContent = 'open';
+        status.className = 'status open';
+    };
+    source.onerror = () => {
+        status.textContent = source.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting…';
+        status.className = 'status ' + (source.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting');
+    };
+
+    source.addEventListener('chat', (event) => {
+        const message = JSON.parse(event.data);
+        // textContent, not innerHTML: messages come from other users
+        log.textContent += `[${message.sent_at}] ${message.author}: ${message.text}\n`;
+        log.scrollTop = log.scrollHeight;
+    });
+
+    form.author.value = localStorage.getItem('author') || '';
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        localStorage.setItem('author', form.author.value);
+        const response = await fetch('send.php', { method: 'POST', body: new FormData(form) });
+        if (response.ok) {
+            form.text.value = '';
+        } else {
+            alert(await response.text());
+        }
+    });
+</script>
+</body>
+</html>

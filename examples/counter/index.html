@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Counter</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<p class="back"><a href="../">← All examples</a></p>
+<h1>Counter</h1>
+<p class="lead">A tick every second, up to 10. Every 4 seconds the server ends the stream on purpose, with
+    <code>maxDuration(4)</code>. The browser reconnects on its own after 2 seconds, sends the id of the last tick it
+    received in the <code>Last-Event-ID</code> header, and the count resumes where it was.</p>
+
+<p>Status: <span class="status" id="status">connecting…</span></p>
+<p>
+    <button id="close" type="button">Close the connection</button>
+    <button id="restart" type="button">Restart from zero</button>
+</p>
+<div class="log" id="log"></div>
+
+<script>
+    const log = document.getElementById('log');
+    const status = document.getElementById('status');
+    let source = null;
+
+    function setStatus(text, state) {
+        status.textContent = text;
+        status.className = 'status ' + state;
+    }
+
+    function append(line) {
+        log.textContent += line + '\n';
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function connect() {
+        source = new EventSource('events.php');
+        source.onopen = () => setStatus('open', 'open');
+        source.onerror = () => {
+            if (source.readyState === EventSource.CLOSED) {
+                setStatus('closed', 'closed');
+            } else {
+                // The server ended the stream: the browser reconnects by itself, with Last-Event-ID
+                setStatus('reconnecting…', 'reconnecting');
+                append('— the stream ended, the browser reconnects —');
+            }
+        };
+        source.addEventListener('hello', (e) => append('hello: ' + e.data));
+        source.addEventListener('tick', (e) => append(`tick (id ${e.lastEventId}): ${e.data}`));
+        source.addEventListener('done', (e) => {
+            append('done: ' + e.data);
+            source.close();
+            setStatus('finished', 'closed');
+        });
+    }
+
+    document.getElementById('close').onclick = () => {
+        source.close();
+        setStatus('closed', 'closed');
+    };
+    document.getElementById('restart').onclick = () => {
+        source.close();
+        log.textContent = '';
+        connect();
+    };
+
+    connect();
+</script>
+</body>
+</html>
