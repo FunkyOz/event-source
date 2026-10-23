@@ -107,7 +107,7 @@ They format the events, and leave the rest to you. This library handles what mak
   browser can't tell it what it missed.
 - **Timing**: polling at a fixed interval, heartbeats while waiting, and a maximum duration.
 - **Lifecycle**: start, stop and error hooks, with the reason the stream ended.
-- **Tests**: run a stream in a unit test, without a server or waiting.
+- **Tests**: run a stream in a unit test with a fake clock, so waiting is instant, and simulate disconnections.
 - **Portability**: the same code in plain PHP, Symfony and Laravel.
 
 For a stream with a natural end, like the answer of an AI model, Laravel's `eventStream()` is enough. For thousands

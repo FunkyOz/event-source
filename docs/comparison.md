@@ -30,11 +30,16 @@ compares them with this library, and says when to pick which.
 | Stops when the client disconnects | ✅, after the next event | ✅, after the next event | ✅, after the next event or heartbeat |
 | Start, stop and error hooks | ❌ | ❌ | `onStart()`, `onStop()` with the reason, `onError()` |
 | End of stream | When the callback returns | Sends a final `</stream>` event | When the generator ends, `stop()` is called, or the maximum duration is reached |
-| Testing without a server | ❌ | ❌ | `StreamTester`, with a fake clock |
+| Testing in a unit test | Capture `sendContent()`, in real time | `assertStreamedContent()`, in real time | `StreamTester`, with a fake clock and simulated disconnections |
 | Frontend helpers | ❌ | `useEventStream` for React, Vue, Svelte | ❌, the native `EventSource` |
 
 No option detects a disconnection while the stream is silent: PHP only notices when it tries to write. That's one of
 the reasons for heartbeats.
+
+All three can be tested without a server. The difference is time: Symfony's and Laravel's tests run the stream for
+real, so a stream that waits 2 seconds between checks takes that long in the test, and one that only ends when the
+client leaves never returns. `StreamTester` replaces the clock, so waiting is instant, and it can simulate the client
+leaving after a number of ticks.
 
 ## The same stream, three ways
 
@@ -78,7 +83,7 @@ use Illuminate\Http\StreamedEvent;
 
 Route::get('/notifications', function () {
     return response()->eventStream(function () {
-        $lastId = Notification::max('id');
+        $lastId = Notification::max('id') ?? 0;
         $endsAt = time() + 300;
         while (time() < $endsAt) {
             foreach (Notification::where('id', '>', $lastId)->get() as $notification) {
@@ -114,7 +119,8 @@ $stream = EventStream::create()
 return response()->sse($stream); // Laravel; StreamedResponseFactory::create($stream, $request) in Symfony
 ```
 
-The same definition runs in plain PHP with `$stream->send()`, and can be tested without a server:
+The same definition runs in plain PHP with `$stream->send()`. In a test, it runs instantly, although it waits between
+ticks and never ends on its own:
 
 ```php
 $result = StreamTester::for($stream)->withLastEventId('41')->disconnectAfter(1)->run();
@@ -129,8 +135,8 @@ especially if your frontend uses Laravel's `useEventStream` hooks. Resuming does
 you're happy to write the loop yourself. It has no extra dependency.
 
 **Use this library** when the stream runs for a long time and must survive reconnections: notifications, dashboards,
-job progress, live feeds. Also when you want the same code in plain PHP and in a framework, or when you want to test
-your streams.
+job progress, live feeds. Also when you want the same code in plain PHP and in a framework, or tests that don't wait
+for real time.
 
 **Use a dedicated server such as [Mercure](https://mercure.rocks)** for thousands of simultaneous clients, or to send
 the same message to many clients at once. All three options above keep one PHP worker busy per open stream, see
