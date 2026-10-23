@@ -7,8 +7,8 @@ Something between PHP and the browser buffers the response. In order of likeliho
 1. **Compression**: `gzip` in nginx, `mod_deflate` in Apache, or `zlib.output_compression` in PHP. Turn it off for
    the stream's route.
 2. **Proxy buffering**: nginx as a reverse proxy needs `proxy_buffering off`. Check load balancers and CDNs too.
-3. **Nested output buffers**: an `ob_start()` in your code or framework, around the stream. The library flushes the
-   current output buffer, not the ones below it.
+3. **An output buffer that can't be removed**: the library closes the output buffers when the stream starts, but
+   not one started without the removable flag, or the buffers below it. Some extensions and old frameworks do this.
 
 See [Running in production](production.md).
 

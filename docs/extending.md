@@ -53,7 +53,7 @@ Two implementations come with the library:
 
 | Class | Writes to |
 |---|---|
-| `PhpOutput` | The PHP output, with `echo` and `flush()`. It ignores user aborts while open, so stop listeners always run, and restores the setting on `close()`. Used by `send()` and the bridges |
+| `PhpOutput` | The PHP output, with `echo` and `flush()`. It closes the output buffers when opened, except on the command line. It ignores user aborts while open, so stop listeners always run, and restores the setting on `close()`. Used by `send()` and the bridges |
 | `StreamOutput` | Any PHP stream resource, like a file or `php://stdout`. It never reports a disconnection, and doesn't close the resource |
 
 ### Example: recording a stream
