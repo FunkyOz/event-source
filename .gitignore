@@ -474,4 +474,10 @@ composer.phar
 .phpunit.cache
 
 .phpdoc/
-docs
+
+# Library
+/composer.lock
+/.phpunit.cache/
+/.php-cs-fixer.cache
+/build/
+/infection.log

@@ -3,15 +3,25 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          cacheDirectory=".phpunit.cache"
-         executionOrder="depends,defects"
+         executionOrder="defects"
+         resolveDependencies="true"
          beStrictAboutOutputDuringTests="true"
          displayDetailsOnPhpunitDeprecations="true"
          failOnPhpunitDeprecation="true"
          failOnRisky="true"
          failOnWarning="true">
     <testsuites>
-        <testsuite name="default">
-            <directory>tests</directory>
+        <testsuite name="core">
+            <directory>tests/Unit</directory>
+            <directory>tests/Integration</directory>
+            <directory>tests/Tooling</directory>
+            <directory>examples/testing</directory>
+        </testsuite>
+        <testsuite name="symfony">
+            <directory>tests/Bridge/Symfony</directory>
+        </testsuite>
+        <testsuite name="laravel">
+            <directory>tests/Bridge/Laravel</directory>
         </testsuite>
     </testsuites>
 

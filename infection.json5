@@ -1,0 +1,24 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "logs": {
+        "text": "build/infection/infection.log",
+        "summary": "build/infection/summary.log"
+    },
+    "mutators": {
+        "@default": true,
+        "global-ignore": [
+            // Thin wrappers around PHP's process functions (echo, flush, connection_aborted, usleep, hrtime). They're
+            // tested end-to-end through PHP's built-in server, in another process that coverage can't see
+            "FunkyOz\\EventSource\\PhpOutput",
+            "FunkyOz\\EventSource\\SystemClock",
+            // fflush() has no visible effect on the memory streams used in tests
+            "FunkyOz\\EventSource\\StreamOutput::flush",
+            "FunkyOz\\EventSource\\StreamOutput::close"
+        ]
+    },
+    "minMsi": 95,
+    "minCoveredMsi": 98
+}

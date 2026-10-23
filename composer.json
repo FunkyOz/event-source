@@ -1,42 +1,108 @@
 {
-    "name": "dessimoney/event-source",
-    "description": "Implementation of Event Source API (Server-Sent Events https://www.w3.org/TR/eventsource)",
+    "name": "funkyoz/event-source",
+    "description": "Server-Sent Events for PHP: stream real-time updates to the browser, in plain PHP, Symfony or Laravel",
     "type": "library",
+    "keywords": [
+        "sse",
+        "server-sent-events",
+        "eventsource",
+        "event-stream",
+        "streaming",
+        "real-time",
+        "symfony",
+        "laravel"
+    ],
+    "homepage": "https://github.com/FunkyOz/event-source",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Lorenzo Dessimoni",
+            "email": "lorenzo.dessimoni@gmail.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/FunkyOz/event-source/issues",
+        "source": "https://github.com/FunkyOz/event-source"
+    },
     "require": {
-        "php": ">=8.1",
-        "ext-json": "*",
-        "symfony/http-foundation": "^7"
+        "php": "^8.2"
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.0",
-        "phpstan/phpstan": "^2.1"
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "infection/infection": "^0.29.14 || ^0.31 || ^0.35",
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.0",
+        "rector/rector": "^2.7",
+        "symfony/http-foundation": "^6.4 || ^7.0 || ^8.0"
+    },
+    "suggest": {
+        "symfony/http-foundation": "To return Symfony responses with Bridge\\Symfony\\StreamedResponseFactory (^6.4 || ^7.0 || ^8.0)",
+        "laravel/framework": "To use the response()->sse() macro (^12.0 || ^13.0)"
+    },
+    "autoload": {
+        "psr-4": {
+            "FunkyOz\\EventSource\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "FunkyOz\\EventSource\\Tests\\": "tests/",
+            "FunkyOz\\EventSource\\Tooling\\": "scripts/"
+        },
+        "classmap": [
+            "examples/"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "FunkyOz\\EventSource\\Bridge\\Laravel\\EventSourceServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "lock": false,
+        "sort-packages": true,
+        "allow-plugins": {
+            "infection/extension-installer": true
+        }
     },
     "scripts": {
         "tests:types": "./vendor/bin/phpstan analyse -c ./phpstan.neon.dist --memory-limit=-1",
         "tests:type": "@tests:types",
         "tests:unit": "./vendor/bin/phpunit",
+        "tests:coverage": "./vendor/bin/phpunit --coverage-text --coverage-clover=build/coverage/clover.xml",
+        "tests:mutation": "./vendor/bin/infection --threads=max --show-mutations",
+        "cs:check": "./vendor/bin/php-cs-fixer check --diff",
+        "cs:fix": "./vendor/bin/php-cs-fixer fix",
+        "rector:check": "./vendor/bin/rector process --dry-run",
+        "rector:fix": "./vendor/bin/rector process",
+        "release:prepare": "php scripts/release.php prepare",
+        "release:notes": "php scripts/release.php notes",
+        "example": [
+            "Composer\\Config::disableProcessTimeout",
+            "PHP_CLI_SERVER_WORKERS=8 php -S localhost:8000 -t examples"
+        ],
         "tests": [
+            "@cs:check",
+            "@rector:check",
             "@tests:types",
             "@tests:unit"
         ]
     },
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Lorenzo",
-            "email": "lorenzo.dessimoni@gmail.com"
-        }
-    ],
-    "minimum-stability": "dev",
-    "prefer-stable": true,
-    "autoload": {
-        "psr-4": {
-            "EventSource\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Test\\": "tests/"
-        }
+    "scripts-descriptions": {
+        "tests": "Run every check that CI runs",
+        "tests:types": "Run PHPStan static analysis",
+        "tests:unit": "Run PHPUnit tests",
+        "tests:coverage": "Run PHPUnit tests with code coverage (needs pcov or xdebug)",
+        "tests:mutation": "Run Infection mutation tests (needs pcov or xdebug)",
+        "cs:check": "Check code style",
+        "cs:fix": "Fix code style",
+        "rector:check": "Show the changes Rector would apply",
+        "rector:fix": "Apply Rector changes",
+        "example": "Serve the examples/ folder on http://localhost:8000",
+        "release:prepare": "Move the Unreleased changelog entries under a new version: composer release:prepare 2.1.0",
+        "release:notes": "Print the changelog entries of a version: composer release:notes 2.1.0"
     }
 }

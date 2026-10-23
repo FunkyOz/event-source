@@ -1,112 +1,69 @@
 <?php
+
 declare(strict_types=1);
 
-namespace EventSource;
+namespace FunkyOz\EventSource;
 
-class Event
+/**
+ * A server-sent event
+ */
+final readonly class Event
 {
     /**
-     * @var string|null
-     */
-    private $eventName;
-
-    /**
-     * @var string|null
-     */
-    private $data;
-
-    /**
-     * @var string|null
-     */
-    private $id;
-
-    /**
-     * Seconds to retry connection
-     *
-     * @var int|null
-     */
-    private $retry;
-
-    /**
-     * Event constructor.
-     * @param string $eventName
-     * @param string|null $data
-     * @param string|null $id
-     * @param int|null $retry
+     * @param string|null $name Event type, null for an unnamed event (the browser's "message" event)
+     * @param string|null $id Sent back by the browser in the Last-Event-ID header after a reconnection
+     * @param float|null $retry Seconds the browser waits before reconnecting
      */
     public function __construct(
-        string $eventName = 'message',
-        ?string $data = null,
-        ?string $id = null,
-        ?int $retry = 3
+        public ?string $name = null,
+        public string $data = '',
+        public ?string $id = null,
+        public ?float $retry = null,
     ) {
-        $this->eventName = $eventName;
-        $this->data = $data;
-        $this->id = $id;
-        $this->retry = $retry;
+        // A line break would start a new field and corrupt the stream
+        if (null !== $name && 1 === preg_match('/[\r\n]/', $name)) {
+            throw new \InvalidArgumentException('The event name cannot contain line breaks.');
+        }
+        if (null !== $id && 1 === preg_match('/[\r\n\0]/', $id)) {
+            throw new \InvalidArgumentException('The event id cannot contain line breaks or NUL characters.');
+        }
+        if (null !== $retry && $retry < 0) {
+            throw new \InvalidArgumentException('The retry time cannot be negative.');
+        }
     }
 
     /**
-     * @return string|null
+     * Create an event whose data is JSON-encoded
+     *
+     * @throws \JsonException
      */
-    public function getEventName(): ?string
+    public static function json(?string $name, mixed $data, ?string $id = null, ?float $retry = null): self
     {
-        return $this->eventName;
+        return new self(
+            $name,
+            json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            $id,
+            $retry,
+        );
     }
 
-    /**
-     * @param string|null $eventName
-     */
-    public function setEventName(?string $eventName): void
+    public function withName(?string $name): self
     {
-        $this->eventName = $eventName;
+        return new self($name, $this->data, $this->id, $this->retry);
     }
 
-    /**
-     * @return string|null
-     */
-    public function getData(): ?string
+    public function withData(string $data): self
     {
-        return $this->data;
+        return new self($this->name, $data, $this->id, $this->retry);
     }
 
-    /**
-     * @param string|null $payload
-     */
-    public function setData(?string $payload): void
+    public function withId(?string $id): self
     {
-        $this->data = $payload;
+        return new self($this->name, $this->data, $id, $this->retry);
     }
 
-    /**
-     * @return string|null
-     */
-    public function getId(): ?string
+    public function withRetry(?float $retry): self
     {
-        return $this->id;
-    }
-
-    /**
-     * @param string|null $id
-     */
-    public function setId(?string $id): void
-    {
-        $this->id = $id;
-    }
-
-    /**
-     * @return int|null
-     */
-    public function getRetry(): ?int
-    {
-        return $this->retry;
-    }
-
-    /**
-     * @param int|null $retry
-     */
-    public function setRetry(?int $retry): void
-    {
-        $this->retry = $retry;
+        return new self($this->name, $this->data, $this->id, $retry);
     }
 }

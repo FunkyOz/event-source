@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Event Source examples</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Event Source examples</h1>
+<p class="lead">Each example shows one feature of <code>funkyoz/event-source</code>. Their code is in the
+    <code>examples/</code> folder.</p>
+
+<div class="cards">
+    <a class="card" href="counter/">
+        <h2>Counter</h2>
+        <p>Event ids, resuming with <code>Last-Event-ID</code>, and a final event.</p>
+    </a>
+    <a class="card" href="chat/">
+        <h2>Chat</h2>
+        <p>Messages from a database, sent to every open tab. History on the first connection.</p>
+    </a>
+    <a class="card" href="progress/">
+        <h2>Progress bar</h2>
+        <p>A generator stream that runs a task and reports its progress.</p>
+    </a>
+    <a class="card" href="job/">
+        <h2>Background job</h2>
+        <p>Follow a job, survive a page reload, and stop reconnecting with <code>204</code>.</p>
+    </a>
+    <a class="card" href="dashboard/">
+        <h2>Dashboard</h2>
+        <p>Server metrics, sent only when they change, with heartbeats in between.</p>
+    </a>
+    <a class="card" href="errors/">
+        <h2>Errors</h2>
+        <p>A failing stream: error listeners, stop reasons and reconnection.</p>
+    </a>
+</div>
+</body>
+</html>
