@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-23
+
 ### Fixed
 
 - Events were held back until the stream ended when output buffers were nested, for example `output_buffering`
   plus an `ob_start()` in a framework or plugin. The stream now flushes and closes the output buffers when it starts,
   as Symfony's `EventStreamResponse` does. On the command line they're kept, since tests use them to capture
   streams.
+- An output buffer that can't be flushed, like one started with `ob_start(null, 0, 0)`, made every event raise an
+  `ob_flush()` notice. It's now left alone.
 
 ## [2.0.0] - 2026-10-23
 
@@ -131,7 +135,8 @@ installed at the same time, since their namespaces differ. See [Upgrading from 1
 
 - First release.
 
-[Unreleased]: https://github.com/FunkyOz/event-source/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/FunkyOz/event-source/compare/2.0.1...HEAD
+[2.0.1]: https://github.com/FunkyOz/event-source/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/FunkyOz/event-source/compare/1.0.10...2.0.0
 [1.0.10]: https://github.com/FunkyOz/event-source/compare/1.0.9...1.0.10
 [1.0.9]: https://github.com/FunkyOz/event-source/compare/1.0.8...1.0.9
