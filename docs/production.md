@@ -35,7 +35,7 @@ In Symfony, call `$request->getSession()->save()`. Laravel's sessions don't lock
 | Setting | Recommendation |
 |---|---|
 | `max_execution_time` | On Linux, it counts CPU time, not waiting, so streams rarely hit it. Still, use `maxDuration()`, or call `set_time_limit(0)` for the stream's request |
-| `output_buffering` | Fine at the usual 4096: the library flushes it. Avoid extra nested `ob_start()` calls around the stream |
+| `output_buffering` | Fine at any value: when the stream starts, the library flushes and closes the output buffers, including nested `ob_start()` calls |
 | `zlib.output_compression` | Must be `Off` for the stream's route: compression holds events back |
 | `display_errors` | `Off`, as always in production. A notice printed before the stream would make it fail with "output was already sent" |
 | `memory_limit` | A long stream accumulates whatever your listeners keep. `maxDuration()` resets it regularly |

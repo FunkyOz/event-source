@@ -35,6 +35,16 @@ switch ($_GET['case'] ?? '') {
             ->send();
         break;
 
+    case 'nested-buffers':
+        // Like output_buffering in php.ini plus a buffer opened by a framework or a plugin
+        ob_start();
+        ob_start();
+        EventStream::create()
+            ->every(0.05)
+            ->onTick(fn(Stream $stream) => $stream->send(new Event('tick', (string) $stream->iteration())))
+            ->send();
+        break;
+
     case 'no-content':
         EventStream::sendNoContent();
         break;

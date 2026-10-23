@@ -15,6 +15,12 @@ final class PhpOutput implements Output
     {
         // Keep running after a client disconnect, so the stop listeners are always called
         $this->previousIgnoreUserAbort = ignore_user_abort(true);
+        // flush() only empties the innermost output buffer, so events would wait in the ones below it: close the
+        // buffers opened before the stream, like output_buffering or a framework's. Not on the command line, where
+        // buffers capture streams in tests
+        if (!in_array(PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
+            $this->closeOutputBuffers();
+        }
     }
 
     public function write(string $chunk): void
@@ -41,6 +47,20 @@ final class PhpOutput implements Output
         if (null !== $this->previousIgnoreUserAbort) {
             ignore_user_abort((bool) $this->previousIgnoreUserAbort);
             $this->previousIgnoreUserAbort = null;
+        }
+    }
+
+    /**
+     * Flush and close the output buffers, from the innermost one, until one can't be removed
+     */
+    private function closeOutputBuffers(): void
+    {
+        $flags = PHP_OUTPUT_HANDLER_REMOVABLE | PHP_OUTPUT_HANDLER_FLUSHABLE;
+        foreach (array_reverse(ob_get_status(true)) as $status) {
+            if (($status['flags'] & $flags) !== $flags) {
+                return;
+            }
+            ob_end_flush();
         }
     }
 }

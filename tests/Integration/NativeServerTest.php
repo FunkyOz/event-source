@@ -58,6 +58,17 @@ class NativeServerTest extends TestCase
         self::assertStringContainsString('Cannot start the stream: output was already sent', $body);
     }
 
+    public function testEventsArriveWhileTheStreamRunsDespiteNestedOutputBuffers(): void
+    {
+        // The stream never ends, so the event can only arrive if it isn't held in an output buffer
+        $connection = $this->open('GET', '/?case=nested-buffers');
+        try {
+            $this->readUntil($connection, "event: tick\ndata: 1\n\n");
+        } finally {
+            fclose($connection);
+        }
+    }
+
     public function testStopListenersRunWhenTheClientDisconnects(): void
     {
         $marker = tempnam(sys_get_temp_dir(), 'event-source-');

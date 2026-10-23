@@ -139,7 +139,7 @@ interface Output
 
 | Class | Description |
 |---|---|
-| `PhpOutput` | Writes to the PHP output with `echo`, and flushes the current output buffer and the system buffers. Ignores user aborts while open, and restores the previous setting when closed. Detects disconnections with `connection_aborted()` |
+| `PhpOutput` | Writes to the PHP output with `echo`, and flushes the system buffers. When opened, it flushes and closes the output buffers, so events aren't held in them; not on the command line, where buffers capture output in tests. Ignores user aborts while open, and restores the previous setting when closed. Detects disconnections with `connection_aborted()` |
 | `StreamOutput` | `new StreamOutput(resource $stream)`: writes to a stream resource. Never reports a disconnection, and doesn't close the resource. Throws `InvalidArgumentException` if the resource isn't open |
 
 See [Extending](extending.md#outputs).

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Events were held back until the stream ended when output buffers were nested, for example `output_buffering`
+  plus an `ob_start()` in a framework or plugin. The stream now flushes and closes the output buffers when it starts,
+  as Symfony's `EventStreamResponse` does. On the command line they're kept, since tests use them to capture
+  streams.
+
 ## [2.0.0] - 2026-10-23
 
 The package is renamed from `dessimoney/event-source` to `funkyoz/event-source`, with a new API. Both can be
