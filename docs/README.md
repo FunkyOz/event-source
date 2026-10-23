@@ -23,6 +23,7 @@ Start here, in this order:
 
 - [Examples](../examples): runnable demos, framework examples and a test example. Run them with
   `composer example`.
+- [Compared with Symfony and Laravel](comparison.md): their built-in SSE support, and when to use which.
 - [Recipes](recipes.md): complete examples for common needs.
 - [Troubleshooting](troubleshooting.md): symptoms, causes and fixes.
 - [Extending](extending.md): custom outputs and clocks, and adapters for other frameworks.
